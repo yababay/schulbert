@@ -5,16 +5,21 @@
 PROJECT_NAME = schulbert
 PROJECT_DIR  = $(shell pwd)
 HOME_DIR     = $(HOME)
-BUILD_DIR    = $(HOME_DIR)/deb_build/$(PROJECT_NAME)
+BUILD_DIR    = build/$(PROJECT_NAME)
 MUSIC_DIR    = $(HOME_DIR)/Music
 
 # Файлы проекта согласно вашей плоской структуре
-SERVER_SCRIPT = music-ai-search.py
-TH_MONITOR    = bluetooth-thd-restart.sh
+MUSIC_AI_SEARCH       = music-ai-search
+THD_BLUETOOTH_MONITOR = thd-bluetooth-monitor
+MUSIC_AI_SEARCH_SCRIPT  = $(MUSIC_AI_SEARCH).py
+MUSIC_AI_SEARCH_SERVICE = $(MUSIC_AI_SEARCH).service
+THD_BLUETOOTH_MONITOR_SCRIPT  = $(THD_BLUETOOTH_MONITOR).sh
+THD_BLUETOOTH_MONITOR_SERVICE = $(THD_BLUETOOTH_MONITOR).service
 
 # Секция назначения путей на Cubi
-SHARE_DIR     = /usr/share/$(PROJECT_NAME)
-SYSTEMD_USER  = $(HOME_DIR)/.config/systemd/user
+SHARE_DIR = /usr/share/$(PROJECT_NAME)
+SYSTEMD_USER_DIR   = $(HOME_DIR)/.config/systemd/user
+SYSTEMD_SYSTEM_DIR = /etc/systemd/system
 
 .PHONY: all setup clean prepare build git_commit psql db_backup db_restore git git_local git_remote
 
@@ -25,40 +30,31 @@ all: prepare build
 # 1. ФАЗА ИНТЕНСИВНОЙ ОТЛАДКИ (Правка кода -> make setup)
 # =====================================================================
 setup:
-	@echo "⚙️  [Локальный деплой]: Копирование живого кода в рабочее окружение..."
-	mkdir -p $(SHARE_DIR)
+	@echo "⚙️  [Локальный деплой]: Обновление скриптов и юнитов Systemd…"
+	sudo mkdir -p $(SHARE_DIR)
+	sudo mkdir -p $(SHARE_DIR)
+	sudo chown player -R $(SHARE_DIR)
+	rm $(SHARE_DIR)/*.sh
+	rm $(SHARE_DIR)/*.py
+	rm $(SHARE_DIR)/*.txt
 	mkdir -p $(SYSTEMD_USER)
 	
-	# Копируем наши отлаживаемые Python-модули и скрипты
-	cp $(PROJECT_DIR)/$(SERVER_SCRIPT) $(SHARE_DIR)/
-	cp $(PROJECT_DIR)/query_normalizer.py $(SHARE_DIR)/
-	cp $(PROJECT_DIR)/playlist_checker.py $(SHARE_DIR)/ 2>/dev/null || true
-	cp $(PROJECT_DIR)/requirements.txt $(SHARE_DIR)/
-	
-	# Ставим ваш глобальный парсер плейлистов в системный путь командной строки
-	sudo cp $(PROJECT_DIR)/yaml2rag.py /usr/local/bin/yaml2rag
-	sudo chmod +x /usr/local/bin/yaml2rag
-	
-	# Установка скрипта мониторинга bluetooth для triggerhappy
-	sudo cp $(PROJECT_DIR)/$(TH_MONITOR) /usr/local/bin/$(TH_MONITOR)
-	sudo chmod +x /usr/local/bin/$(TH_MONITOR)
+	cp $(MUSIC_AI_SEARCH_SCRIPT)        $(SHARE_DIR)/
+	cp $(MUSIC_AI_SEARCH_SERVICE)       $(SYSTEMD_USER_DIR)/
+	cp $(THD_BLUETOOTH_MONITOR_SCRIPT)  $(SHARE_DIR)/
+	chmod +x $(SHARE_DIR)/$(THD_BLUETOOTH_MONITOR_SCRIPT)
+	sudo cp $(THD_BLUETOOTH_MONITOR_SERVICE) $(SYSTEMD_SYSTEM_DIR)/
+	cp requirements.txt $(SHARE_DIR)/
+	@echo "========================================================="
+	@echo "✅ Скрипты и юниты обновлены, перезапускаем новые версии…"
+	@echo "========================================================="
 
-	@echo "⚙️  [Локальный деплой]: Обновление пользовательских юнитов Systemd..."
-	cp $(PROJECT_DIR)/music-ai-search.service $(SYSTEMD_USER)/
-	
-	# Установка вашего нового udev-триггера для triggerhappy (на системный уровень)
-	if [ -f "$(PROJECT_DIR)/bluetooth-thd-restart.service" ]; then \
-		sudo cp $(PROJECT_DIR)/bluetooth-thd-restart.service /etc/systemd/system/; \
-		sudo systemctl daemon-reload; \
-		sudo systemctl enable bluetooth-thd-restart.service; \
-	fi
-
-	# Перезапуск измененных сервисов
 	systemctl --user daemon-reload
-	systemctl --user restart music-ai-search.service
-	@echo "========================================================="
-	@echo "🎉 Успех! Правки применены, ИИ-сервер перезапущен в фоне."
-	@echo "========================================================="
+	systemctl --user restart $(MUSIC_AI_SEARCH_SERVICE)
+	sudo systemctl daemon-reload
+	sudo systemctl restart $(THD_BLUETOOTH_MONITOR_SERVICE)
+	systemctl --user status $(MUSIC_AI_SEARCH_SERVICE)
+	sudo systemctl status $(THD_BLUETOOTH_MONITOR_SERVICE)
 
 # =====================================================================
 # 2. ФАЗА СТАБИЛЬНОГО РЕЛИЗА (Сборка монолитного пакета)
