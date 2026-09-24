@@ -185,6 +185,21 @@ from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 # =====================================================================
 # 5. СЕТЕВОЙ REST-ПУЛЬТ ДЛЯ КНОПОЧНЫХ УСТРОЙСТВ (Калька с mpc)
 # =====================================================================
+
+def execute_mpc(command: str):
+    """
+    Универсальная функция безопасного выполнения команд mpc.
+    Подавляет вывод в stdout/stderr, чтобы не засорять системный лог journalctl,
+    и корректно отрабатывает цепочки команд через оператор &&.
+    """
+    try:
+        # shell=True необходим, так как мы используем цепочки команд через '&&' и кавычки
+        subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Ошибка при выполнении системной команды mpc: {e}")
+    except Exception as e:
+        print(f"❌ Непредвиденное исключение при вызове mpc: {e}")
+
 @app.post("/mpc")
 @app.get("/mpc")  # Добавляем GET, чтобы команды можно было слать даже просто из адресной строки браузера
 def mpc_network_remote(
@@ -272,51 +287,52 @@ async def receive_voice_and_play(file: UploadFile = File(...)):
         if not raw_text:
             return {"status": "ignored", "reason": "empty_speech"}
 
-        # 🚀 ЭТАП 1: Быстрые синтаксические команды управления плеером
+        # 🚀 ЭТАП 1: Быстрые синтаческо-голосовые команды управления плеером
         if any(word in raw_text for word in ["пауза", "стоп", "останови"]):
-            subprocess.run("mpc pause", shell=True)
+            # 🌟 ЗАДЕЙСТВОВАНО ЕДИНООБРАЗИЕ
+            execute_mpc("mpc pause")
             return {"status": "success", "mode": "syntax", "command": "pause"}
+            
         if any(word in raw_text for word in ["играй", "продолжи", "запусти"]):
-            subprocess.run("mpc play", shell=True)
+            # 🌟 ЗАДЕЙСТВОВАНО ЕДИНООБРАЗИЕ
+            execute_mpc("mpc play")
             return {"status": "success", "mode": "syntax", "command": "play"}
+            
         if any(word in raw_text for word in ["громче", "добавь звук"]):
-            subprocess.run("mpc volume +10", shell=True)
+            # 🌟 ЗАДЕЙСТВОВАНО ЕДИНООБРАЗИЕ
+            execute_mpc("mpc volume +10")
             return {"status": "success", "mode": "syntax", "command": "volume_up"}
+            
         if any(word in raw_text for word in ["тише", "убавь звук"]):
-            subprocess.run("mpc volume -10", shell=True)
+            # 🌟 ЗАДЕЙСТВОВАНО ЕДИНООБРАЗИЕ
+            execute_mpc("mpc volume -10")
             return {"status": "success", "mode": "syntax", "command": "volume_down"}
+
+        # Запрос статуса текущего трека (оставляем с capture_output, так как тут нам критически нужен вывод mpc)
         if any(word in raw_text for word in ["что играет", "статус", "трек", "инфо", "информация"]):
             print("🕹️ [Команда]: Запрос статуса воспроизведения")
-            # Запрашиваем у mpc текущий трек (возвращает Исполнитель - Название)
             res_mpc = subprocess.run("mpc current", shell=True, capture_output=True, text=True)
             current_track = res_mpc.stdout.strip()
-            
-            # Если плеер пуст или остановлен, выдаем понятный статус
             if not current_track:
                 current_track = "Воспроизведение остановлено или очередь пуста."
-                
-            return {
-                "status": "success", 
-                "mode": "syntax", 
-                "command": "status", 
-                "track": current_track
-            }
+            return {"status": "success", "mode": "syntax", "command": "status", "track": current_track}
 
         # 🚀 ЭТАП 2: Парсим номер плейлиста строго через ваш оригинальный Yargy-модуль
         playlist_number = check_playlist_phrase(raw_text)
         
         if playlist_number > 0:
             print(f"🎯 [Yargy триумф]: Извлечен номер: {playlist_number}")
-            
-            # Форматируем число с лидирующими нулями до 4 знаков (например, "2022" или "0042")
             prefix = f"{playlist_number:04d}"
             
-            # 🌟 НАШ НОВЫЙ СИСТЕМНЫЙ ФИЛЬТР: Ищем полное имя файла в медиатеке
+            # Ищем полное имя файла в медиатеке
             full_playlist_name = find_full_playlist_name(prefix)
             
             if full_playlist_name:
                 print(f"🎵 Найдено полное совпадение в mpd: \"{full_playlist_name}\"")
-                subprocess.run(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play", shell=True)
+                
+                # 🌟 ЗАДЕЙСТВОВАНО ЕДИНООБРАЗИЕ ДЛЯ ГОЛОСОВОГО КАНАЛА
+                execute_mpc(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play")
+                
                 return {
                     "status": "success", 
                     "mode": "syntax_yargy", 
