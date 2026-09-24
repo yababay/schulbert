@@ -1,0 +1,24 @@
+# --- Системные и сетевые библиотеки ---
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.52.4
+requests==2.34.2
+python-dotenv==1.2.3
+PyYAML==6.0.3
+psycopg2-binary==2.9.12
+
+# --- Голосовой тракт и Лингвистика ---
+vosk==0.3.45
+yargy==0.16.0
+transliterate==1.10.2
+pymorphy2==0.9.1
+pymorphy2-dicts-ru==2.4.417127.4579844
+
+# --- ИИ-анализ (для будущего переключения на e5) ---
+# (Мы не прописываем сюда torch, так как он ставится отдельной CPU-командой в postinst)
+sentence-transformers==6.0.1
+transformers==5.17.0
+tokenizers==0.23.2
+numpy==2.5.3
+scikit-learn==1.9.0
+
