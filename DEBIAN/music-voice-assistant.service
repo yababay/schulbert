@@ -1,0 +1,19 @@
+[Unit]
+Description=Однократный запуск ИИ-распознавания голоса по сети
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# 🌟 ЗАЩИТА ОТ ДВОЙНОГО КЛИКА И ОЧЕРЕДИ:
+TriggerLimitIntervalSec=12s
+TriggerLimitBurst=1
+
+# Указываем фоновому сервису systemd адрес вашего текущего экрана X-сервера
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=%h/.Xauthority"
+Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
+ExecStart=python3 scripts/music-voice-assistant.py
+

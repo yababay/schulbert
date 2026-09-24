@@ -1,0 +1,21 @@
+[Unit]
+Description=Локальный ИИ-сервер поиска музыки (FastAPI + pgvector)
+After=network.target
+
+[Service]
+Type=simple
+# Задаем рабочую директорию — теперь все относительные пути считаются от неё!
+WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
+
+# 🌟 ЭЛЕГАНТНОЕ РЕШЕНИЕ: Подменяем PATH для этого юнита.
+# systemd сам найдет нужный интерпретатор в .venv/bin, как если бы мы сделали source!
+Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Теперь пишем короткие, красивые пути относительно WorkingDirectory
+ExecStart=python3 scripts/local-search-server.py
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

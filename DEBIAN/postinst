@@ -1,0 +1,74 @@
+#!/bin/sh
+set -e
+
+TARGET_USER="player"
+SHARE_DIR="/usr/share/single-board-player"
+
+echo "⚙️ [Деплой]: Настройка СУБД PostgreSQL 17..."
+
+# Проверяем и запускаем PostgreSQL, если он спит
+if ! systemctl is-active --quiet postgresql; then
+    systemctl start postgresql
+fi
+
+echo "⚙️ [Деплой]: Создание пользователя и базы данных..."
+# Создаем пользователя-НЕсуперпользователя и базу данных от имени системного юзера postgres
+su - postgres -c "psql -c \"CREATE USER $TARGET_USER WITH COLUMN_ENCRYPTION = OFF;\" 2>/dev/null || true"
+su - postgres -c "psql -c \"ALTER USER $TARGET_USER WITH PASSWORD 'player_secure_pass';\" 2>/dev/null || true"
+su - postgres -c "psql -c \"CREATE DATABASE player OWNER $TARGET_USER;\" 2>/dev/null || true"
+
+echo "⚙️ [Деплой]: Подключение расширения pgvector..."
+# Расширение vector должно создаваться суперпользователем, но внутри базы player
+su - postgres -c "psql -d player -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+
+echo "⚙️ [Деплой]: Накатываю автоматический SQL-триггер хэширования векторов..."
+# Создаем наш проверенный триггер, чтобы он сразу был в базе
+su - postgres -c "psql -d player" << 'EOF'
+CREATE OR REPLACE FUNCTION tf_tracks_calculate_hash()
+RETURNS TRIGGER AS $$
+DECLARE
+    current_ai_text TEXT;
+    computed_hash TEXT;
+BEGIN
+    current_ai_text := 
+        COALESCE('Название: ' || NEW.title, '') || ' ; ' ||
+        COALESCE('Исполнитель: ' || NEW.artist, '') || ' ; ' ||
+        COALESCE('Альбом: ' || NEW.album, '') || ' ; ' ||
+        COALESCE('Жанр: ' || NEW.genre, '') || ' ; ' ||
+        COALESCE('Стиль: ' || NEW.style, '') || ' ; ' ||
+        COALESCE('Форма: ' || NEW.form, '');
+
+    computed_hash := md5(current_ai_text);
+
+    IF (TG_OP = 'INSERT') OR (computed_hash IS DISTINCT FROM OLD.meta_hash) THEN
+        NEW.meta_hash := computed_hash;
+        NEW.embedding := NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_tracks_biu
+BEFORE INSERT OR UPDATE ON tracks
+FOR EACH ROW
+EXECUTE FUNCTION tf_tracks_calculate_hash();
+EOF
+
+# Инициализация venv и системные настройки (ваш прошлый рабочий код)...
+echo "⚙️ [Деплой]: Разворачивание изолированного виртуального окружения Python..."
+cd "$SHARE_DIR"
+mkdir -p .venv models  # Сразу создаем models уровнем выше, как вы просили!
+if [ ! -d ".venv" ]; then
+    python3 -m venv .venv
+fi
+
+.venv/bin/pip3 install torch --index-url http://download.pytorch.org/whl/cpu/
+.venv/bin/pip3 install -r requirements.txt
+chown -R $TARGET_USER:$TARGET_USER $SHARE_DIR
+
+echo "=========================================================================="
+echo "🎉 Системная часть single-board-player и СУБД успешно настроены!"
+echo "=========================================================================="
+exit 0
+
