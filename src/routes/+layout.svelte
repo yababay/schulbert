@@ -14,16 +14,14 @@
 {@render children()}
 </main>
 
-<!-- Изменение в src/routes/+layout.svelte -->
 <style>
 	main {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
+		display: block;
 		box-sizing: border-box;
-		min-height: 100vh; /* Позволяет контенту расти вниз при скролле */
-		padding: 20px 0;
+		min-height: 100vh;
+		padding: 0;
+		margin: 0;
+		background: #f8f9fa; /* Сменили на светлый системный фон Bootstrap */
 	}
 </style>
 
