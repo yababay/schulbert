@@ -1,81 +1,72 @@
 <script lang="ts">
-	import { state as pageState, actions } from '../../routes/main.svelte';
+	import { pageState, actions } from '../../routes/main.svelte';
 
-	// Реактивно вычисляем состояние Полного Стопа на основе строки статуса Cubi
+	// 1. Реактивно вычисляем состояние Полного Стопа / Тишины
 	let isStopped = $derived(
 		pageState.nowPlaying.includes("Воспроизведение остановлено") || 
 		pageState.nowPlaying.trim() === "" ||
 		pageState.nowPlaying.includes("Тишина")
 	);
 	
-	// Локальный флаг состояния для плавного переключения иконок play/pause
-	let localIsPlaying = $state(false);
-	
-	// Синхронизируем локальный флаг с ответами сервера Cubi
-	$effect(() => {
-		if (isStopped) {
-			localIsPlaying = false;
-		} else if (pageState.nowPlaying && !isStopped) {
-			if (pageState.nowPlaying.includes("[paused]")) {
-				localIsPlaying = false;
-			} else {
-				localIsPlaying = true;
-			}
-		}
-	});
+	// 2. Реактивно вычисляем состояние Паузы
+	let isPaused = $derived(pageState.nowPlaying.includes("[paused]"));
+
+	// 3. 🌟 ГЛОБАЛЬНЫЙ МАРКЕР ВОСПРОИЗВЕДЕНИЯ: Музыка играет, если это не Стоп и не Пауза!
+	// Теперь это свойство мгновенно реагирует на любые изменения в pageState.nowPlaying
+	let isPlaying = $derived(!isStopped && !isPaused);
 
 	// Умный тогл Play/Pause
 	function handlePlayPauseToggle() {
-		if (localIsPlaying) {
+		if (isPlaying) {
+			// Если сейчас играет — ставим на паузу
 			actions.sendMpcCommand({ action: 'pause' });
-			localIsPlaying = false;
 		} else {
+			// Если стояло на паузе или было остановлено — запускаем играть
 			actions.sendMpcCommand({ action: 'play' });
-			localIsPlaying = true;
 		}
 	}
 
-	// Жесткий стоп плеера
+	// Нажатие на кнопку Стоп принудительно гасит тракт
 	function handleStop() {
-		actions.sendMpcCommand({ action: 'stop' }); // На сервере mpc clear
-		localIsPlaying = false;
+		actions.sendMpcCommand({ action: 'stop' });
 		pageState.nowPlaying = "Воспроизведение остановлено или очередь пуста.";
 	}
 </script>
 
-<!-- ОБЪЕДИНЕННАЯ ПРАВАЯ ПАНЕЛЬ С УМНОЙ СЕМАНТИКОЙ КНОПОК -->
+<!-- ОБЪЕДИНЕННАЯ ПРАВАЯ ПАНЕЛЬ С АБСОЛЮТНОЙ РЕАКТИВНОСТЬЮ -->
 <div class="d-flex flex-column flex-sm-row align-items-center gap-3 backend-remote-panel">
 	
-	<!-- Группа управления треками (динамическая видимость) -->
+	<!-- Группа управления треками -->
 	<div class="btn-group shadow-sm" role="group">
 		
-		<!-- Динамическая кнопка Play/Pause (Доступна всегда) -->
+		<!-- Динамическая кнопка Play/Pause (Сверяется со сквозным статусом isPlaying) -->
 		<button 
 			type="button" 
 			class="btn btn-outline-dark py-2 px-3 d-flex align-items-center" 
-			title={localIsPlaying ? "Поставить на паузу" : "Запустить воспроизведение"}
+			title={isPlaying ? "Поставить на паузу" : "Запустить воспроизведение"}
 			onclick={handlePlayPauseToggle}
 		>
-			{#if localIsPlaying}
+			{#if isPlaying}
 				<i class="bi bi-pause-fill fs-5"></i>
 			{:else}
 				<i class="bi bi-play-fill fs-5"></i>
 			{/if}
 		</button>
 
-		<!-- 🌟 СЕМАНТИЧЕСКИЙ ФИЛЬТР: Кнопка Стоп появляется ТОЛЬКО если трек играет или на паузе -->
-		{#if !isStopped}
+		<!-- Кнопка Стоп (Появляется реактивно) -->
+		<!-- #if !isStopped -->
 			<button 
 				type="button" 
 				class="btn btn-outline-dark py-2 px-3 d-flex align-items-center" 
+				class:d-none={!isPlaying}
 				title="Остановить воспроизведение и сбросить очередь"
 				onclick={handleStop}
 			>
 				<i class="bi bi-stop-fill fs-5"></i>
 			</button>
-		{/if}
+		<!-- {/if} -->
 
-		<!-- Кнопка Следующий трек (Доступна всегда для пролистывания) -->
+		<!-- Кнопка Следующий трек -->
 		<button 
 			type="button" 
 			class="btn btn-outline-dark py-2 px-3 d-flex align-items-center" 
@@ -86,14 +77,14 @@
 		</button>
 	</div>
 
-	<!-- Легковесный Bootstrap Range ползунок громкости с шагом 5% -->
+	<!-- Bootstrap Range ползунок громкости -->
 	<div class="d-flex align-items-center gap-2 border rounded px-3 py-1.5 bg-light shadow-sm" style="min-width: 180px;">
 		{#if pageState.volume === 0}
-			<i class="bi bi-volume-mute-fill text-muted fs-5" title="Звук выключен"></i>
+			<i class="bi bi-volume-mute-fill text-muted fs-5"></i>
 		{:else if pageState.volume < 50}
-			<i class="bi bi-volume-down-fill text-secondary fs-5" title="Тихая громкость"></i>
+			<i class="bi bi-volume-down-fill text-secondary fs-5"></i>
 		{:else}
-			<i class="bi bi-volume-up-fill text-dark fs-5" title="Высокая громкость"></i>
+			<i class="bi bi-volume-up-fill text-dark fs-5"></i>
 		{/if}
 		
 		<input 

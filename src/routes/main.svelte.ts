@@ -1,9 +1,7 @@
-import { state as devState } from './main.svelte'; // Сохраняем структуру, если нужно
-
 // Базовый URL для прокси-запросов Nginx
 const API_BASE = '/api';
 
-export const state = $state({
+export const pageState = $state({
     playlists: [] as Array<{ playlist_id: number; name: string }>,
     currentTracks: [] as Array<{ track_number: number; title: string; artist: string; album: string }>,
     selectedPlaylistId: null as number | null,
@@ -25,7 +23,7 @@ export const actions = {
             const res = await fetch(`${API_BASE}/catalog`);
             if (res.ok) {
                 const data = await res.json();
-                state.playlists = data.playlists || [];
+                pageState.playlists = data.playlists || [];
             }
         } catch (e) {
             console.error("Ошибка загрузки плейлистов:", e);
@@ -34,21 +32,22 @@ export const actions = {
 
     // 2. Загрузка правой панели: Треки конкретного плейлиста
     async fetchTracks(playlistId: number, playlistName: string) {
-        state.selectedPlaylistId = playlistId;
-        state.selectedPlaylistName = playlistName;
+        pageState.selectedPlaylistId = playlistId;
+        pageState.selectedPlaylistName = playlistName;
         try {
             const res = await fetch(`${API_BASE}/catalog?id=${playlistId}`);
             if (res.ok) {
                 const data = await res.json();
-                state.currentTracks = data.tracks || [];
+                pageState.currentTracks = data.tracks || [];
             }
         } catch (e) {
             console.error("Ошибка загрузки треков:", e);
         }
     },
 
+    // 3. Отправка быстрых REST-команд управления в mpc
     async sendMpcCommand(params: { action?: string; volume?: string; load?: number; track?: number }) {
-        const url = new URL(`${window.location.origin}/api/mpc`);
+        const url = new URL(`${window.location.origin}${API_BASE}/mpc`);
         if (params.action) url.searchParams.append('action', params.action);
         if (params.volume) url.searchParams.append('volume', params.volume);
         if (params.load) url.searchParams.append('load', params.load.toString());
@@ -57,10 +56,8 @@ export const actions = {
         try {
             const res = await fetch(url.toString(), { method: 'POST' });
             if (res.ok) {
-                // Если мы устанавливали абсолютную громкость ползунком, 
-                // локально обновляем значение сразу, чтобы интерфейс не дергался
                 if (params.volume && !params.volume.startsWith('+') && !params.volume.startsWith('-')) {
-                    state.volume = parseInt(params.volume);
+                    pageState.volume = parseInt(params.volume);
                 }
                 await this.updateStatus();
             }
@@ -69,17 +66,16 @@ export const actions = {
         }
     },
 
+    // 4. Опрос статуса текущей песни
     async updateStatus() {
         try {
-            const res = await fetch('/api/mpc?action=status', { method: 'POST' });
+            const res = await fetch(`${API_BASE}/mpc?action=status`, { method: 'POST' });
             if (res.ok) {
                 const data = await res.json();
                 if (data.status === "success") {
-                    state.nowPlaying = data.track || 'Тишина.';
-                    
-                    // 🌟 ПАРСИМ ГРОМКОСТЬ, КОТОРУЮ НАМ ТЕПЕРЬ ВОЗВРАЩАЕТ СЕРВЕР CUBI
+                    pageState.nowPlaying = data.track || 'Воспроизведение остановлено или очередь пуста.';
                     if (data.volume !== undefined) {
-                        state.volume = data.volume;
+                        pageState.volume = data.volume;
                     }
                 }
             }
