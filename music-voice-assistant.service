@@ -1,0 +1,21 @@
+[Unit]
+Description=Однократный запуск ИИ-распознавания голоса по сети
+
+# 🌟 ИСПРАВЛЕНО: Параметры защиты от дребезга перенесены в секцию [Unit] по новому стандарту
+StartLimitIntervalSec=12s
+StartLimitBurst=1
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Указываем фоновому сервису systemd адрес вашего текущего экрана X-сервера
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=%h/.Xauthority"
+# Указываем точный путь к бинарнику python внутри нашего изолированного venv
+Environment="PATH=/usr/share/schulbert/music-voice-assistant/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+WorkingDirectory=/usr/share/schulbert/music-voice-assistant/
+# 🌟 ОПТИМИЗАЦИЯ: Вызываем python без жесткого указания версии, systemd сам возьмет его из PATH (наш venv)
+ExecStart=python3 main.py
+
