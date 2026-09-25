@@ -8,6 +8,7 @@
 		"dev": "vite dev",
 		"git": "git add . && git commit -am ok && git push origin frontend",
 		"build": "vite build",
+		"postbuild": "rsync -avz --delete --chmod=D775,F664 build/ music:/www/data/schulbert/",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"devDependencies": {
