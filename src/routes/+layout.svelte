@@ -1,5 +1,5 @@
 <script lang="ts">
-	import favicon from '$lib/assets/ai-music.svg';
+	import favicon from '$lib/assets/favicon.svg';
 	import { PUBLIC_PAGE_TITLE } from '$env/static/public';
 
 	let { children } = $props();
