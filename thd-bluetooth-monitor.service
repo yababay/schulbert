@@ -1,13 +1,14 @@
 [Unit]
-Description=Takes new connected bluetooth device with buttons
+Description=Обновление источников кнопочного ввода по мере подключения bluetooth-устройств
 After=bluetooth.target sound.target
 Requires=bluetooth.service
 
 [Service]
 Type=simple
-ExecStart=/usr/share/schulbert/take-keyboard
+ExecStart=/usr/share/schulbert/thd-bluetooth-monitor.sh
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
+

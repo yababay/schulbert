@@ -32,12 +32,11 @@ all: prepare build
 setup:
 	@echo "⚙️  [Локальный деплой]: Обновление скриптов и юнитов Systemd…"
 	sudo mkdir -p $(SHARE_DIR)
-	sudo mkdir -p $(SHARE_DIR)
 	sudo chown player -R $(SHARE_DIR)
-	rm $(SHARE_DIR)/*.sh
-	rm $(SHARE_DIR)/*.py
-	rm $(SHARE_DIR)/*.txt
-	mkdir -p $(SYSTEMD_USER)
+	rm -f $(SHARE_DIR)/*.sh
+	rm -f $(SHARE_DIR)/*.py
+	rm -f $(SHARE_DIR)/*.txt
+	mkdir -p $(SYSTEMD_USER_DIR)
 	
 	cp $(MUSIC_AI_SEARCH_SCRIPT)        $(SHARE_DIR)/
 	cp $(MUSIC_AI_SEARCH_SERVICE)       $(SYSTEMD_USER_DIR)/
