@@ -227,16 +227,55 @@ def execute_mpc(command: str):
 @app.post("/mpc")
 @app.get("/mpc")
 def mpc_network_remote(
-    action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear"),
+    action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear, status"),
     volume: str = Query(None, description="Изменение громкости, например: +5, -10, 50"),
     load: str = Query(None, description="4-значный номер плейлиста для поиска и загрузки, например: 2022"),
     track: int = Query(None, description="Номер трека в плейлисте для мгновенного запуска, например: 5")
 ):
-    """Универсальный сетевой шлюз к утилите mpc с поддержкой выбора трека."""
+    """Универсальный сетевой шлюз к утилите mpc с поддержкой выбора трека и считывания статуса."""
     executed_commands = []
 
+    # 🌟 ОБРАБОТКА ХОЛОДНОГО СТАТУСА (Выносим в приоритетную проверку)
+    if action == "status":
+        print("🕹️ [REST-Пульт]: Запрос статуса воспроизведения и громкости")
+        
+        # 1. Получаем текущую песню (Исполнитель - Название)
+        res_track = subprocess.run("mpc current", shell=True, capture_output=True, text=True)
+        current_track = res_track.stdout.strip()
+        
+        # 2. Вычисляем состояние паузы. В mpc при паузе вторая строка вывода содержит "[paused]"
+        res_state = subprocess.run("mpc", shell=True, capture_output=True, text=True)
+        if "[paused]" in res_state.stdout:
+            current_track += " [paused]"
+            
+        # 3. Вытаскиваем точное число громкости
+        res_vol = subprocess.run("mpc volume", shell=True, capture_output=True, text=True)
+        volume_value = 50  # Дефолт на случай n/a
+        volume_match = re.search(r'volume:\s*(\d+)%', res_vol.stdout)
+        if volume_match:
+            volume_value = int(volume_match.group(1))
+
+        if not current_track or "volume:" in current_track:
+            current_track = "Воспроизведение остановлено или очередь пуста."
+            
+        return {
+            "status": "success",
+            "mode": "syntax",
+            "command": "status",
+            "track": current_track,
+            "volume": volume_value
+        }
+
+    # --- ВСЯ ОСТАЛЬНАЯ ВАША СТАНДАРТНАЯ РАБОЧАЯ ЛОГИКА ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ---
     if action:
-        valid_actions = {"play": "mpc play", "pause": "mpc pause", "toggle": "mpc toggle", "next": "mpc next", "prev": "mpc prev", "clear": "mpc clear", "status": "mpc status"}
+        valid_actions = {
+            "play": "mpc play", 
+            "pause": "mpc pause", 
+            "toggle": "mpc toggle", 
+            "next": "mpc next", 
+            "prev": "mpc prev", 
+            "clear": "mpc clear"
+        }
         if action in valid_actions:
             execute_mpc(valid_actions[action])
             executed_commands.append(f"action: {action}")
