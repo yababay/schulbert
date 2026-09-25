@@ -21,7 +21,7 @@ load_dotenv()
 # Глушим отладочный C++ шум Vosk для чистоты серверных логов
 SetLogLevel(-1)
 
-app = FastAPI()
+app = FastAPI(root_path='/api')
 
 # Базовые пути проекта
 BASE_DIR = Path(__file__).resolve().parent
