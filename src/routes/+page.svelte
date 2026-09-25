@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { state, actions } from './main.svelte';
 	import genresData from '$lib/assets/genres.json';
-	import logoImg from '$lib/assets/schulbert.svg';
-	import PlayerRemote from '$lib/components/PlayerRemote.svelte'; // 🌟 Импортируем наш выделенный компонент
+	import Brand from '$lib/components/Brand.svelte';               // 🌟 Наш новый левый компонент
+	import PlayerRemote from '$lib/components/PlayerRemote.svelte';   // Наш правый компонент
 
 	onMount(() => {
 		actions.fetchPlaylists();
@@ -24,34 +24,20 @@
 			return inGenre && matchSearch;
 		})
 	);
-
-	// Вычисляем флаг для анимации диска прямо на главной странице
-	let isPlayingDisk = $derived(!state.nowPlaying.includes("Воспроизведение остановлено") && !state.nowPlaying.includes("[paused]") && state.nowPlaying.trim() !== "");
 </script>
 
 <div class="container-fluid bg-light text-dark min-vh-100 p-3 p-md-4">
 	
-	<!-- ВЕРХНЯЯ СЕРВЕРНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ -->
+	<!-- ВЕРХНЯЯ СЕРВЕРНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (ИТОГОВЫЙ ВИД) -->
 	<div class="row mb-4">
 		<div class="col-12">
 			<div class="card bg-white border shadow-sm rounded-3">
 				<div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 py-3">
 					
-					<!-- ЛЕВАЯ ЗОНА: SVG ЛОГОТИП И СТАТУС -->
-					<div class="d-flex flex-column align-items-center align-items-md-start">
-						<img src={logoImg} alt="Schubert Logo" width="140" height="30" class="img-fluid mb-2" />
-						<p class="card-text mb-0 text-muted" style="font-size: 0.85rem;">
-							{#if isPlayingDisk}
-								<i class="bi bi-disc-fill text-primary animate-spin me-1"></i> 
-							{:else}
-								<i class="bi bi-disc text-secondary me-1"></i> 
-							{/if}
-							<span class="fw-semibold text-secondary">Сейчас играет:</span> 
-							{state.nowPlaying.replace(" [paused]", "")}
-						</p>
-					</div>
+					<!-- Левый бренд-компонент (Логотип + Умный статус) -->
+					<Brand />
 
-					<!-- 🌟 ВНЕДРЕНИЕ НАШЕГО НОВОГО ВЫДЕЛЕННОГО КОМПОНЕНТА ПУЛЬТА -->
+					<!-- Правый пульт управления (Кнопки + Ползунок громкости) -->
 					<PlayerRemote />
 
 				</div>
