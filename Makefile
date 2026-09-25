@@ -29,31 +29,37 @@ all: prepare build
 # =====================================================================
 # 1. ФАЗА ИНТЕНСИВНОЙ ОТЛАДКИ (Правка кода -> make setup)
 # =====================================================================
-setup:
-	@echo "⚙️  [Локальный деплой]: Обновление скриптов и юнитов Systemd…"
-	sudo mkdir -p $(SHARE_DIR)
-	sudo chown player -R $(SHARE_DIR)
-	rm -f $(SHARE_DIR)/*.sh
+setup_music:
+	@echo "⚙️  Обновление музыкального сервера…"
 	rm -f $(SHARE_DIR)/*.py
 	rm -f $(SHARE_DIR)/*.txt
 	mkdir -p $(SYSTEMD_USER_DIR)
 	
 	cp $(MUSIC_AI_SEARCH_SCRIPT)        $(SHARE_DIR)/
 	cp $(MUSIC_AI_SEARCH_SERVICE)       $(SYSTEMD_USER_DIR)/
-	cp $(THD_BLUETOOTH_MONITOR_SCRIPT)  $(SHARE_DIR)/
-	chmod +x $(SHARE_DIR)/$(THD_BLUETOOTH_MONITOR_SCRIPT)
-	sudo cp $(THD_BLUETOOTH_MONITOR_SERVICE) $(SYSTEMD_SYSTEM_DIR)/
 	cp requirements.txt $(SHARE_DIR)/
 	@echo "========================================================="
-	@echo "✅ Скрипты и юниты обновлены, перезапускаем новые версии…"
+	@echo "✅ Скрипты и юнит обновлены, перезапускаем новую версию…"
 	@echo "========================================================="
 
 	systemctl --user daemon-reload
 	systemctl --user restart $(MUSIC_AI_SEARCH_SERVICE)
+	systemctl --user status  $(MUSIC_AI_SEARCH_SERVICE)
+
+setup_thd:
+	@echo "⚙️  Обновление thd-монитора…"
+	rm -f $(SHARE_DIR)/*.sh
+	
+	cp $(THD_BLUETOOTH_MONITOR_SCRIPT)  $(SHARE_DIR)/
+	chmod +x $(SHARE_DIR)/$(THD_BLUETOOTH_MONITOR_SCRIPT)
+	sudo cp $(THD_BLUETOOTH_MONITOR_SERVICE) $(SYSTEMD_SYSTEM_DIR)/
+	@echo "========================================================="
+	@echo "✅ Скрипты и юнит обновлены, перезапускаем новую версию…"
+	@echo "========================================================="
+
 	sudo systemctl daemon-reload
 	sudo systemctl restart $(THD_BLUETOOTH_MONITOR_SERVICE)
-	systemctl --user status $(MUSIC_AI_SEARCH_SERVICE)
-	sudo systemctl status $(THD_BLUETOOTH_MONITOR_SERVICE)
+	sudo systemctl status  $(THD_BLUETOOTH_MONITOR_SERVICE)
 
 # =====================================================================
 # 2. ФАЗА СТАБИЛЬНОГО РЕЛИЗА (Сборка монолитного пакета)

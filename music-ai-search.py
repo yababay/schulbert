@@ -3,6 +3,7 @@ import io
 import json
 import wave
 import subprocess
+import psycopg2
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Query
 from vosk import Model as VoskModel, KaldiRecognizer, SetLogLevel
@@ -12,6 +13,10 @@ from yargy import Parser, rule, or_
 from yargy.predicates import gram
 from yargy.pipelines import morph_pipeline
 from yargy.interpretation import fact
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения
+load_dotenv()
 
 # Глушим отладочный C++ шум Vosk для чистоты серверных логов
 SetLogLevel(-1)
@@ -22,6 +27,11 @@ app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
 VOSK_MODEL_PATH = str(BASE_DIR / "models" / "vosk-model-small-ru")
 E5_MODEL_PATH = str(BASE_DIR / "models" / "multilingual-e5-large")
+
+PG_USER = os.getenv("PG_USER", "player")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "")
+PG_DATABASE = os.getenv("PG_DATABASE", "player")
+
 
 vosk_model = None
 e5_model = None
@@ -270,7 +280,8 @@ def get_media_catalog(id: int = Query(None, description="ID плейлиста �
     # 🔌 Подключаемся к нашей очищенной PostgreSQL от имени пользователя player
     # (В будущем эти параметры будут красиво стягиваться из файла .env)
     try:
-        conn = psycopg2.connect("dbname=player user=player host=localhost")
+        # conn = psycopg2.connect("dbname=player user=player host=localhost")
+        conn = psycopg2.connect(f"dbname={PG_DATABASE} user={PG_USER} password={PG_PASSWORD} host=localhost")
         cur = conn.cursor()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка подключения к СУБД: {e}")
