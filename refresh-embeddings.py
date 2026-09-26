@@ -4,9 +4,19 @@ import sys
 import json
 import psycopg2
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 E5_MODEL_PATH = str(BASE_DIR / "models" / "multilingual-e5-large")
+ENV_PATH = BASE_DIR / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH)
+
+# Параметры удаленной БД
+DB_HOST = os.getenv('PG_HOST',     '192.168.0.111')
+DB_USER = os.getenv('PG_USER',     'player')
+DB_NAME = os.getenv('PG_DATABASE', 'player')
+DB_PASS = os.getenv('PG_PASSWORD', 'players_password')
 
 print("🌌 [Ночной воркер]: Запуск планового обновления эмбеддингов...")
 

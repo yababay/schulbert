@@ -21,6 +21,7 @@ all: venv
 	cp m3u2db.py $(SHARE_DIR)/
 	cp refresh-embeddings.py $(SHARE_DIR)/
 	cp extract_tags.py $(SHARE_DIR)/
+	cp .bash_music $(MUSIC_DIR)
 	
 	@echo "📦 [Деплой RAG]: Генерация локальных алиасов в $(MUSIC_DIR)/.bash_music..."
 	mkdir -p $(MUSIC_DIR)
@@ -42,6 +43,7 @@ venv:
 		cp $(REQUIREMENTS_SRC) $(REQUIREMENTS_DST) || touch $(REQUIREMENTS_DST)          ; \
 		if [ -f ".env" ]; then cp .env $(DOTENV_FN); else touch $(DOTENV_FN); fi         ; \
 		$(VENV_DIR)/bin/pip3 install -r $(REQUIREMENTS_DST)                              ; \
+		$(VENV_DIR)/bin/pip3 install torch --trusted-host download.pytorch.org --extra-index-url http://download.pytorch.org/whl/cpu ; \
 	fi
 	@echo "✅ Виртуальное окружение успешно создано и проверено."
 
