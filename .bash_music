@@ -79,3 +79,6 @@ update_tags () {
     done
 }
 
+alias lsm3u='ls -1 *.m3u'
+alias lsyml='ls -1 *.yaml'
+
