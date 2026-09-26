@@ -1,19 +1,37 @@
 DOWNLOAD_DIR="$HOME/Загрузки"
 
-check_yaml_name () {
-    echo "$1" | egrep '\.yaml$'
+check_m3u_name () {
+    echo "$1" | egrep '\.m3u$'
+}
+
+check_playlist_files () {
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
+        return 1
+    fi
+
+    cat $1 | grep '.mp3' | egrep -v '^#' | while read l; do
+    	if [ ! -f "$l" ]; then
+		echo "❌ Файл $l отсутствует."
+		return 1
+	fi
+    done
 }
 
 upload_yaml () {
-    if [ -z "$(check_yaml_name "$1")" ]; then
-        echo "❌ Входной yaml-файл не указан."
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
         return 1
     fi
-    yc storage s3 cp $1 s3://playlists-dispatcher/playlists/
-}
-
-check_m3u_name () {
-    echo "$1" | egrep '\.m3u$'
+    check_playlist_files $1
+    m3u2yaml $1
+    yaml_file="$(echo "$1" | sed -E 's/\.m3u$/.yaml/')"
+    if [ ! -f "$yaml_file" ]; then
+        echo "❌ Не удалось сформировать yaml-файл."
+        return 1
+    fi
+    yc storage s3 cp $yaml_file s3://playlists-dispatcher/playlists/
+    rm $yaml_file
 }
 
 sync_music_files () {
