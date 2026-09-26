@@ -35,7 +35,7 @@ except Exception as e:
 
 try:
     # Подключаемся к локальной базе player на Cubi
-    conn = psycopg2.connect("dbname=player user=player host=localhost")
+    conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS, port=5432)
     cur = conn.cursor()
     
     # 🔍 Ищем записи, у которых текст обновился (триггер сбросил embedding в NULL)

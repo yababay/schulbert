@@ -1,5 +1,46 @@
 DOWNLOAD_DIR="$HOME/Загрузки"
 
+check_m3u_name () {
+    echo "$1" | egrep '\.m3u$'
+}
+
+sync_music_files () {
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
+        return 1 # 🌟 ИСПРАВЛЕНО: return 1 вместо exit 1 защищает терминал от закрытия
+    fi
+
+    SCHULBERT_URL="schulbert:/var/lib/mpd/music"
+
+    echo "🚀 [Синхронизация]: Переношу аудиофайлы из плейлиста $1 на Cubi..."
+    # Синхронизируем согласно плейлиста:
+    rsync -avz --delete --timeout=30 --partial --exclude='.*' --files-from="$1" . "$SCHULBERT_URL"
+
+    # Отправляем и сам плейлист, красиво заменяя /music на /playlists в пути
+    TARGET_PLAYLIST_URL=$(echo "$SCHULBERT_URL" | sed 's/\/music/\/playlists/')
+    scp "$1" "$TARGET_PLAYLIST_URL"
+    
+    echo "🎵 [Синхронизация]: Запуск mpc update на Cubi..."
+    ssh schulbert mpc update
+}
+
+remove_deprecated_tags () {
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
+        return 1 # 🌟 ИСПРАВЛЕНО: Защита сессии терминала
+    fi
+    
+    # Читаем плейлист построчно, полностью игнорируя заголовки #EXTM3U и пустые строки
+    cat "$1" | tr -d '\r' | while read -r line; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        
+        if [ -f "$line" ]; then
+            # 🌟 Принудительно вырезаем ломающийся тег ID3v1 из mp3
+            eyeD3 --remove-v1 "$line" >/dev/null 2>&1
+        fi
+    done
+}
+
 update_tags () {
     # Сортированный список m3u файлов текущей папки
     ls -1 *.m3u 2>/dev/null | while read -r l; do
@@ -8,27 +49,33 @@ update_tags () {
         sh_path="$DOWNLOAD_DIR/$sh_file" 
         
         if [ ! -f "$sh_path" ]; then
-		# echo "❌ Файл $sh_path отсутствует."
-		continue
+            continue
         fi
-        echo "🏭 Обрабатывается файл $sh_path…"
-	    
+        
+        echo "========================================================="
+        echo "🏭 Обрабатывается файл плейлиста: $l"
+        echo "========================================================="
+        
+        echo "🧹 [Очистка]: Вырезаю устаревшие теги ID3v1..."
+        # 🌟 ИСПРАВЛЕНО: Передаем текущий плейлист из цикла ($l), а не аргумент функции ($1)
+        remove_deprecated_tags "$l"
+
         # Переносим скрипт из Загрузок в текущую папку альбома
         mv "$sh_path" ./
 	    
         # Запускаем прошивку русских тегов в mp3-файлы
-        # Флаг -e внутри bash заставит его прерваться, если агент выдаст ошибку
-        echo "🎵 Запуск скрипта прошивки $sh_file..."
+        echo "🎵 [Прошивка]: Запуск скрипта обогащения метаданных $sh_file..."
         sh "./$sh_file"
 	    
-        # Переносим отработавший скрипт в архивную скрытую папку .done, 
-        # чтобы он не мозолил глаза и не запускался повторно
+        # Переносим отработавший скрипт в архивную скрытую папку .done
         mkdir -p .done
         mv "$sh_file" .done/
-	    
-        echo "✅ Прошивка тегов для плейлиста $l успешно завершена!"
-        continue
         
+        # 🌟 ИСПРАВЛЕНО: Запускаем вашу крутую синхронизацию для текущего плейлиста $l
+        sync_music_files "$l"
+	    
+        echo "✅ Успех! Прошивка и деплой для плейлиста $l полностью завершены!"
+        echo "========================================================="
     done
 }
 

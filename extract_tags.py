@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from pathlib import Path
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3NoHeaderError
 
@@ -34,8 +35,8 @@ def clean_text(value) -> str:
 
 def extract_mp3_tags(file_path) -> dict:
     """
-    Единая функция извлечения метаданных из MP3 файла для всего проекта.
-    Возвращает словарь только с разрешенными тегами, либо пустой словарь.
+    Абсолютно отказоустойчивая функция извлечения метаданных.
+    Корректно читает списки Юникод-фреймов ID3v2.3/2.4 и кастомные TXXX-поля.
     """
     metadata = {}
     if not os.path.exists(file_path):
@@ -48,28 +49,47 @@ def extract_mp3_tags(file_path) -> dict:
                 key = None
                 value = ""
                 
-                # Обработка пользовательских текстовых тегов TXXX
+                # 1. Извлекаем текстовое значение фрейма (mutagen часто пакует его в список)
+                if hasattr(frame, 'text') and frame.text:
+                    if isinstance(frame.text, list):
+                        value = " ".join([str(x) for x in frame.text])
+                    else:
+                        value = str(frame.text)
+                else:
+                    continue
+
+                # 2. Обработка пользовательских текстовых тегов TXXX (style, form, instrument, period)
                 if frame_id.startswith("TXXX:"):
-                    txxx_desc = frame_id.split(":", 1)[1].lower()
+                    txxx_desc = frame_id.split(":", 1)[1].strip().lower()
                     if txxx_desc in ALLOWED_TAGS:
                         key = txxx_desc
-                        value = frame.text[0] if frame.text else ""
-                # Обработка стандартных ID3 фреймов
+                
+                # 3. Обработка стандартных ID3 фреймов (title, artist, album, genre, date)
                 elif frame_id in ID3_MAP:
                     key = ID3_MAP[frame_id]
-                    value = frame.text[0] if frame.text else ""
                 
+                # Записываем очищенный текст в итоговый словарь
                 if key and key in ALLOWED_TAGS:
                     cleaned_val = clean_text(value)
+                    
                     if key == "genre":
                         cleaned_val = re.sub(r'\s*\(\d+\)$', '', cleaned_val)
+                        
                     if cleaned_val:
                         metadata[key] = cleaned_val
                         
     except ID3NoHeaderError:
-        pass  # Штатная ситуация: у файла просто нет тегов
+        pass  # Файл чист, это штатно
     except Exception as e:
-        print(f"⚠️ Ошибка чтения тегов в {file_path}: {e}", file=sys.stderr)
+        print(f"⚠️ Ошибка mutagen в {file_path}: {e}", file=sys.stderr)
+
+    # 🌟 ЗАЩИТНАЯ КАЗУИСТИКА: Если тег title по какой-то причине остался пуст,
+    # мы принудительно вытянем имя файла в качестве названия трека, чтобы не нарушать NOT NULL базы!
+    if not metadata.get('title'):
+        file_name_stem = Path(file_path).stem
+        # Очищаем имя файла от лидирующих цифр (например, "18_Devil_in_Disguise" -> "Devil in Disguise")
+        cleaned_title = re.sub(r'^\d+[\s_.\-]+', '', file_name_stem).replace('_', ' ')
+        metadata['title'] = cleaned_title if cleaned_title else "Неизвестный трек"
 
     return metadata
 
