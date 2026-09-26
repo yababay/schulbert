@@ -1,0 +1,28 @@
+PLAYLIST_ID ?= 2022
+M3U_FILE     = $(PLAYLIST_ID).m3u
+YAML_RAW     = $(PLAYLIST_ID)-raw.yaml
+YAML_READY   = $(PLAYLIST_ID).yaml
+
+.PHONY: all step1_m3u step3_deploy clean git
+
+all: step1_m3u
+	@echo "ℹ️  Используйте 'make step3_deploy PLAYLIST_ID=XXXX' после обогащения через Yandex Cloud."
+
+# Шаг 1. Конвертация m3u в черновой YAML
+step1_m3u:
+	@echo "📁 Конвертация $(M3U_FILE) в черновой YAML..."
+	python3 m3u2yaml.py $(M3U_FILE) $(YAML_RAW)
+	@echo "✅ Черновик сохранен в $(YAML_RAW). Отправьте его текстовому агенту Яндекса."
+
+# Шаг 3. Прямая заливка готового русскоязычного YAML в базу данных Cubi по сети
+step3_deploy:
+	@echo "🚀 Заливка готового RAG-файла $(YAML_READY) в PostgreSQL на Cubi..."
+	python3 yaml2rag.py $(YAML_READY)
+
+clean:
+	rm -f *-raw.yaml
+
+git:
+	git add .
+	git commit -a -m "Рефакторинг асинхронного RAG-пайплайна"
+	git push origin rag-pipeline
