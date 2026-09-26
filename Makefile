@@ -24,7 +24,7 @@ all: venv
 	
 	@echo "📦 [Деплой RAG]: Генерация локальных алиасов в $(MUSIC_DIR)/.bash_music..."
 	mkdir -p $(MUSIC_DIR)
-	@echo "alias m3u2yaml='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2yaml.py'"                        > $(MUSIC_DIR)/.bash_music
+	@echo "alias m3u2yaml='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2yaml.py'"                       >> $(MUSIC_DIR)/.bash_music
 	@echo "alias m3u2db='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2db.py'"                           >> $(MUSIC_DIR)/.bash_music
 	@echo "alias refresh-embeddings='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/refresh-embeddings.py'"   >> $(MUSIC_DIR)/.bash_music
 	@echo "🎉 Успех! Изменения применены."
