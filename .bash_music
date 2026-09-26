@@ -1,5 +1,17 @@
 DOWNLOAD_DIR="$HOME/Загрузки"
 
+check_yaml_name () {
+    echo "$1" | egrep '\.yaml$'
+}
+
+upload_yaml () {
+    if [ -z "$(check_yaml_name "$1")" ]; then
+        echo "❌ Входной yaml-файл не указан."
+        return 1
+    fi
+    yc storage s3 cp $1 s3://playlists-dispatcher/playlists/
+}
+
 check_m3u_name () {
     echo "$1" | egrep '\.m3u$'
 }
@@ -7,7 +19,7 @@ check_m3u_name () {
 sync_music_files () {
     if [ -z "$(check_m3u_name "$1")" ]; then
         echo "❌ Входной m3u-файл не указан."
-        return 1 # 🌟 ИСПРАВЛЕНО: return 1 вместо exit 1 защищает терминал от закрытия
+        return 1
     fi
 
     SCHULBERT_URL="schulbert:/var/lib/mpd/music"
@@ -70,11 +82,12 @@ update_tags () {
         # Переносим отработавший скрипт в архивную скрытую папку .done
         mkdir -p .done
         mv "$sh_file" .done/
-        
+
         # 🌟 ИСПРАВЛЕНО: Запускаем вашу крутую синхронизацию для текущего плейлиста $l
         sync_music_files "$l"
+	m3u2db $l
 	    
-        echo "✅ Успех! Прошивка и деплой для плейлиста $l полностью завершены!"
+        echo "✅ Прошивка и деплой для плейлиста $l завершены."
         echo "========================================================="
     done
 }
