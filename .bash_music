@@ -30,9 +30,9 @@ upload_yaml () {
         echo "❌ Не удалось сформировать yaml-файл."
         return 1
     fi
-    echo "⬆️  Выгрузка $yaml_file в бакет…"
     yc storage s3 cp $yaml_file s3://playlists-dispatcher/playlists/
     rm $yaml_file
+    echo "🍵 Выгрузка $yaml_file в бакет завершена."
 }
 
 sync_music_files () {
