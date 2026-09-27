@@ -1,0 +1,12 @@
+.svelte-kit/
+.venv/
+build/
+node_modules/
+.env
+
+*-*/
+*.yaml
+*.txt
+*.sh
+*.log
+
