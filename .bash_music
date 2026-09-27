@@ -35,7 +35,7 @@ fix_garbled_tags () {
 }
 
 find_mp3 () {
-	find "$1" -name '*.mp3' | sort
+	find "$1" -name '*.mp3' -type f | sort
 }
 
 check_playlist_files () {
@@ -147,4 +147,5 @@ update_tags () {
 
 alias lsm3u='ls -1 *.m3u'
 alias lsyml='ls -1 *.yaml'
+alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "music-ai-search.sql" player'
 
