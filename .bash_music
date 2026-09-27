@@ -149,3 +149,6 @@ alias lsm3u='ls -1 *.m3u'
 alias lsyml='ls -1 *.yaml'
 alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "music-ai-search.sql" player'
 
+alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
+alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
+alias refresh-embeddings='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/refresh-embeddings.py'

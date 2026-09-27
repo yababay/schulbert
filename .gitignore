@@ -1,5 +1,6 @@
 .svelte-kit/
 .venv/
+.done/
 build/
 node_modules/
 .env
@@ -9,4 +10,5 @@ node_modules/
 *.txt
 *.sh
 *.log
+*.sql
 
