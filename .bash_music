@@ -4,6 +4,74 @@ check_m3u_name () {
     echo "$1" | egrep '\.m3u$'
 }
 
+check_mp3_name () {
+    echo "$1" | egrep '\.mp3$'
+}
+
+set_genre () {
+	if [ -z "$(check_mp3_name "$1")" ]; then
+		echo "❌ Входной mp3-файл не указан."
+		return 1
+	fi
+	if [ -z "$2" ]; then
+		echo "❌ Не указан жанр."
+		return 2
+	fi
+	
+	eyeD3 --encoding utf8 --genre "$2" "$1"
+}
+
+set_album () {
+	if [ -z "$(check_mp3_name "$1")" ]; then
+		echo "❌ Входной mp3-файл не указан."
+		return 1
+	fi
+	if [ -z "$2" ]; then
+		echo "❌ Не указан альбом."
+		return 2
+	fi
+	
+	eyeD3 --encoding utf8 --album "$2" "$1"
+}
+
+set_artist () {
+	if [ -z "$(check_mp3_name "$1")" ]; then
+		echo "❌ Входной mp3-файл не указан."
+		return 1
+	fi
+	if [ -z "$2" ]; then
+		echo "❌ Не указан исполнитель."
+		return 2
+	fi
+	
+	eyeD3 --encoding utf8 --artist "$2" "$1"
+}
+
+local_processing () {
+	if [ -z "$(check_m3u_name "$1")" ]; then
+		echo "❌ Входной m3u-файл не указан."
+		return 1
+	fi
+	
+	check_playlist_files "$1" || return 1
+
+	fix_garbled_tags $1
+	sync_music_files $1
+	m3u2db $1
+	    
+	echo "========================================================="
+	echo "✅ Локальная обработка плейлиста $1 завершена."
+	echo "========================================================="
+}
+
+show_first () {
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
+        return 1
+    fi
+    eyeD3 "$(head -n 1 $1)"
+}
+
 fix_garbled_tags () {
     if [ -z "$(check_m3u_name "$1")" ]; then
         echo "❌ Входной m3u-файл не указан."
@@ -44,12 +112,24 @@ check_playlist_files () {
         return 1
     fi
 
-    cat $1 | grep '.mp3' | egrep -v '^#' | while read l; do
-    	if [ ! -f "$l" ]; then
-		echo "❌ Файл $l отсутствует."
-		return 1
-	fi
-    done
+    sed -i "s/'//g" $1
+
+    # Читаем файл напрямую, без использования пайпа '|'
+    while IFS= read -r l || [[ -n "$l" ]]; do
+        # Удаляем символ возврата каретки \r (актуально для Windows-плейлистов)
+        l=$(echo "$l" | tr -d '\r')
+        
+        # Полностью игнорируем мета-комментарии плейлиста и пустые строки
+        [[ -z "$l" || "$l" =~ ^# ]] && continue
+        
+        # Проверяем физическое наличие файла
+        if [ ! -f "$l" ]; then
+            echo "❌ Ошибка: Файл \"$l\" отсутствует в медиатеке десктопа!"
+            return 1 # Теперь этот return честно вернет код 1 всей функции!
+        fi
+    done < "$1" # Перенаправляем файл на вход цикла
+    
+    return 0
 }
 
 upload_yaml () {
@@ -57,7 +137,7 @@ upload_yaml () {
         echo "❌ Входной m3u-файл не указан."
         return 1
     fi
-    check_playlist_files $1
+    check_playlist_files $1 || exit 1
     m3u2yaml $1
     yaml_file="$(echo "$1" | sed -E 's/\.m3u$/.yaml/')"
     if [ ! -f "$yaml_file" ]; then
@@ -148,7 +228,9 @@ update_tags () {
 alias lsm3u='ls -1 *.m3u'
 alias lsyml='ls -1 *.yaml'
 alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "music-ai-search.sql" player'
+alias psql='psql -h schulbert -d player -U player'
 
 alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
 alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
 alias refresh-embeddings='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/refresh-embeddings.py'
+
