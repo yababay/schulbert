@@ -4,12 +4,15 @@
 
 .PHONY: all venv git git_local git_remote
 
-PROJECT_NAME = schulbert
-WHOAMI       = $(shell whoami)
-SHARE_DIR    = /usr/share/$(PROJECT_NAME)/rag-pipeline
-VENV_DIR     = $(SHARE_DIR)/.venv
-DOTENV_FN    = $(SHARE_DIR)/.env
-MUSIC_DIR    = $(HOME)/Музыка
+PROJECT_NAME   = schulbert
+WHOAMI         = $(shell whoami)
+SHARE_DIR      = /usr/share/$(PROJECT_NAME)/rag-pipeline
+VENV_DIR       = $(SHARE_DIR)/.venv
+DOTENV_FN      = $(SHARE_DIR)/.env
+MUSIC_DIR      = $(HOME)/Музыка
+BASH_MUSIC     = $(MUSIC_DIR)/.bash_music
+HAS_BASH_MUSIC = $(shell [ -f "$(BASH_MUSIC)" ] && echo true)
+HAS_ALIASES    = $(shell [ -n "$(HAS_BASH_MUSIC)" ] && cat $(BASH_MUSIC) | grep 'alias m3u2' | head -n 1)
 
 REQUIREMENTS_SRC = requirements.txt
 REQUIREMENTS_DST = $(SHARE_DIR)/$(REQUIREMENTS_SRC)
@@ -21,17 +24,18 @@ all: venv
 	cp m3u2db.py $(SHARE_DIR)/
 	cp refresh-embeddings.py $(SHARE_DIR)/
 	cp extract_tags.py $(SHARE_DIR)/
-	
-	@if [ -f  "$(MUSIC_DIR)/.bash_music" ]; then                                                                                          \
-		echo "📦 [Деплой RAG]: Генерация локальных алиасов в $(MUSIC_DIR)/.bash_music..."					    ; \
+
+	@if [ -z "$(HAS_ALIASES)" ]; then  									                              \
+		echo "📦 [Деплой RAG]: Генерация локальных алиасов в $(BASH_MUSIC)..."							    ; \
 		mkdir -p $(MUSIC_DIR)													    ; \
-		echo "alias m3u2yaml='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2yaml.py'"                       >> $(MUSIC_DIR)/.bash_music  ; \
-		echo "alias m3u2db='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2db.py'"                           >> $(MUSIC_DIR)/.bash_music  ; \
-		echo "alias refresh-embeddings='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/refresh-embeddings.py'"   >> $(MUSIC_DIR)/.bash_music  ; \
-		echo "🎉 Успех! Изменения применены."											    ; \
-		echo "⚠️  РЕКОМЕНДАЦИЯ: Выполните 'source .bash_music' находясь в директории ~/Музыка."					    ; \
-		echo "========================================================================"					            ; \
+		echo "alias m3u2yaml='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2yaml.py'"                       >> $(BASH_MUSIC)             ; \
+		echo "alias m3u2db='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2db.py'"                           >> $(BASH_MUSIC)             ; \
+		echo "alias refresh-embeddings='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/refresh-embeddings.py'"   >> $(BASH_MUSIC)             ; \
 	fi
+
+	@echo "🎉 Изменения применены."
+	@echo "⚠️  РЕКОМЕНДАЦИЯ: Выполните 'source .bash_music' находясь в директории ~/Музыка."
+	@echo "========================================================================"
 
 venv:
 	@echo "========================================================================"
