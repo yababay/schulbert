@@ -4,6 +4,40 @@ check_m3u_name () {
     echo "$1" | egrep '\.m3u$'
 }
 
+fix_garbled_tags () {
+    if [ -z "$(check_m3u_name "$1")" ]; then
+        echo "❌ Входной m3u-файл не указан."
+        return 1
+    fi
+
+    echo "🧹 [Лечение кодировки]: Анализирую файлы из плейлиста $1..."
+    
+    # Считываем плейлист, отсекая заголовки m3u и пустые строки
+    cat "$1" | tr -d '\r' | while read -r line; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        
+        if [ -f "$line" ]; then
+            echo "🔧 Восстановление Юникода в файле: $line"
+            
+            # Именуем встроенную утилиту из нашего виртуального окружения RAG-пайплайна.
+            # Флаг -e cp1251 указывает исходную сломанную Windows-кодировку.
+            # Флаг -d (dry-run) отсутствует, поэтому утилита запишет чистый UTF-8 в ID3v2.4!
+            /usr/share/schulbert/rag-pipeline/.venv/bin/mid3iconv -e cp1251 --remove-v1 "$line" >/dev/null 2>&1
+	    eyeD3 $line
+        else
+            echo "⚠️ Файл не найден: $line"
+        fi
+    done
+    
+    echo "========================================================="
+    echo "🎉 Восстановление завершено! Теги переведены в чистый UTF-8."
+    echo "========================================================="
+}
+
+find_mp3 () {
+	find "$1" -name '*.mp3' | sort
+}
+
 check_playlist_files () {
     if [ -z "$(check_m3u_name "$1")" ]; then
         echo "❌ Входной m3u-файл не указан."
