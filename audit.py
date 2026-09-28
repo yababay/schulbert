@@ -39,28 +39,27 @@ def run_audit():
     # Вычисляем путь к музыкальной папке с раскрытием тильды
     MUSIC_DIR = Path('~/Музыка').expanduser()
     m3u_files = list(MUSIC_DIR.glob('*.m3u'))
-    if not m3u_files:
-        print(f"📁 В директории {MUSIC_DIR} не найдено m3u-файлов для проверки.")
-        cur.close()
-        conn.close()
-        return
 
-    print(f"📈 Найдено локальных плейлистов для сверки: {len(m3u_files)}")
+    print(f"📈 Найдено локальных плейлистов на десктопе: {len(m3u_files)}")
     if not args.all:
-        print("💡 По умолчанию отображаются ТОЛЬКО проблемные плейлисты. Для полного списка используйте: audit-db --all\n")
-    else:
-        print("💡 Отображается полный отчет (режим --all).\n")
+        print("💡 По умолчанию отображаются только проблемные зоны. Для полного отчета используйте: audit-db --all\n")
 
     # Шапка таблицы
-    header = f"{'Плейлист':<35} | {'Строк':<6} | {'В СУБД':<6} | {'Статус':<14} | {'Без векторов'}"
+    header = f"{'Плейлист / Имя в СУБД':<45} | {'Строк':<6} | {'В СУБД':<6} | {'Статус':<18} | {'Без векторов'}"
     print(header)
     print("-" * len(header))
 
     total_playlists_checked = 0
     total_errors = 0
     hidden_ok_count = 0
-    skipped_drafts_count = 0  # 🌟 Счетчик пропущенных черновиков
+    skipped_drafts_count = 0
+    
+    # Множество для фиксации номеров плейлистов, которые физически существуют на диске
+    found_local_numbers = set()
 
+    # =====================================================================
+    # ЭТАП 1: ПРОВЕРКА СУЩЕСТВУЮЩИХ ФАЙЛОВ ПЛЕЙЛИСТОВ
+    # =====================================================================
     for m3u_path in sorted(m3u_files):
         m3u_name = m3u_path.stem
         match = re.search(r'^\d+', m3u_name)
@@ -68,13 +67,15 @@ def run_audit():
             continue
         playlist_number = int(match.group(0))
 
-        # 🌟 ЖЕСТКИЙ ФИЛЬТР ЧЕРНОВИКОВ: Игнорируем всё, что меньше 1000
+        # Игнорируем технические черновики меньше 1000
         if playlist_number < 1000:
             skipped_drafts_count += 1
             continue
-        total_playlists_checked += 1
 
-        # 1. Считаем реальные mp3-строки в локальном файле
+        total_playlists_checked += 1
+        found_local_numbers.add(playlist_number)
+
+        # 1. Считаем mp3-строки в локальном файле
         file_lines_count = 0
         with open(m3u_path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
@@ -82,15 +83,14 @@ def run_audit():
                 if line and not line.startswith('#'):
                     file_lines_count += 1
 
-        # 2. Запрашиваем количество треков в удаленной СУБД Cubi
+        # 2. Запрашиваем количество треков в удаленной СУБД
         cur.execute("SELECT COUNT(*) FROM tracks WHERE playlist_number = %s;", (playlist_number,))
         db_tracks_count = cur.fetchone()[0]
 
-        # 3. Проверяем наличие пустых эмбеддингов для этого плейлиста
+        # 3. Проверяем наличие пустых эмбеддингов
         cur.execute("SELECT COUNT(*) FROM tracks WHERE playlist_number = %s AND embedding IS NULL;", (playlist_number,))
         null_embeddings = cur.fetchone()[0]
 
-        # Вычисляем статус целостности данных
         is_ok = False
         if db_tracks_count == 0:
             status = "❌ СЛЕПОЙ"
@@ -102,21 +102,46 @@ def run_audit():
             status = "✅ ОК"
             is_ok = True
 
-        # Логика скрытия: если всё хорошо и ключ --all НЕ передан, просто увеличиваем счетчик и скрываем строку
         if is_ok and not args.all:
             hidden_ok_count += 1
             continue
 
         null_emb_str = f"{null_embeddings} ⏳" if null_embeddings > 0 else "0"
-        print(f"{m3u_name:<35} | {file_lines_count:<6} | {db_tracks_count:<6} | {status:<14} | {null_emb_str}")
+        print(f"{m3u_name:<45} | {file_lines_count:<6} | {db_tracks_count:<6} | {status:<18} | {null_emb_str}")
+
+    # =====================================================================
+    # ЭТАП 2: ОБНАРУЖЕНИЕ ФАНТОМНЫХ ПЛЕЙЛИСТОВ (Есть в базе, но удалены с диска)
+    # =====================================================================
+    # Вытаскиваем из СУБД все плейлисты, исключая черновики < 1000
+    cur.execute("SELECT playlist_number, playlist_title FROM playlists WHERE playlist_number >= 1000 ORDER BY playlist_number ASC;")
+    db_playlists = cur.fetchall()
+
+    phantom_count = 0
+    for p_num, p_name in db_playlists:
+        # Если номер плейлиста есть в базе данных, но его физического .m3u файла больше нет на десктопе!
+        if p_num not in found_local_numbers:
+            phantom_count += 1
+            total_errors += 1
+            
+            # Узнаем, сколько «мертвых» треков продолжает лежать под этим номером в базе
+            cur.execute("SELECT COUNT(*) FROM tracks WHERE playlist_number = %s;", (p_num,))
+            dead_tracks_count = cur.fetchone()[0]
+            
+            # Выводим фантомную строку ярким флагом
+            print(f"[{p_num}] {p_name:<39} | {'0':<6} | {dead_tracks_count:<6} | 🚨 ФАНТОМ (УДАЛЕН) | 0")
+
+    print("-" * len(header))
+    print(f"⚙️  Аудит завершен. Боевых плейлистов на диске проверено: {total_playlists_checked}")
+    if skipped_drafts_count > 0:
+        print(f"📝 Технических черновиков (< 1000) отсечено: {skipped_drafts_count}")
+    if hidden_ok_count > 0:
+        print(f"🌲 Полностью корректных плейлистов скрыто из виду: {hidden_ok_count}")
+    if phantom_count > 0:
+        print(f"👻 Найдено фантомных (осиротевших) списков в СУБД Cubi: {phantom_count}")
+    print(f"🚨 Итого объектов, требующих внимания и чистки: {total_errors}")
 
     cur.close()
     conn.close()
-    print("-" * len(header))
-    print(f"⚙️  Аудит завершен. Всего проверено плейлистов: {total_playlists_checked}")
-    if hidden_ok_count > 0:
-        print(f"🌲 Полностью корректных плейлистов скрыто из виду: {hidden_ok_count}")
-    print(f"🚨 Требуют внимания и перезаливки: {total_errors}")
 
 if __name__ == "__main__":
     run_audit()
