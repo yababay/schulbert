@@ -67,8 +67,34 @@ def m3u_to_database(m3u_path):
             
             # Извлекаем свежезашитые русские теги
             tags = extract_mp3_tags(line)
+
+            # 🌟 ИНТЕЛЛЕКТУАЛЬНЫЙ СУДЬЯ ЖАНРОВ СТРОГО ПО ТЗ:
+            # Вычисляем главный жанр на основе числового диапазона номера плейлиста
+            if 1000 <= playlist_number <= 1999:
+                final_genre = "Классическая музыка"
+            elif 4000 <= playlist_number <= 4999:
+                final_genre = "Блюз"
+            elif 3000 <= playlist_number <= 3999:
+                final_genre = "Джаз"
+            elif 2000 <= playlist_number <= 2999:
+                final_genre = "Рок"
+            elif 5000 <= playlist_number <= 5999:
+                final_genre = "Популярная музыка"
+            elif 6000 <= playlist_number <= 6999:
+                final_genre = "Этническая музыка"
+            else:
+                final_genre = "Другое"
+
+            # Все остальные оригинальные теги жанров из MP3 мы переносим в стили!
+            original_genre_tag = tags.get('genre', '')
+            existing_style = tags.get('style', '')
             
-            # Напрямую вставляем данные треков (file_path теперь на месте)
+            # Соединяем их вместе для колонки style, если они отличаются
+            if original_genre_tag and original_genre_tag != final_genre:
+                final_style = f"{original_genre_tag}; {existing_style}".strip("; ")
+            else:
+                final_style = existing_style
+
             cur.execute("""
                 INSERT INTO tracks (playlist_number, track_number, file_path, title, artist, album, genre, style, form, embedding)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL);
@@ -79,10 +105,11 @@ def m3u_to_database(m3u_path):
                 tags.get('title'),
                 tags.get('artist'),
                 tags.get('album'),
-                tags.get('genre'),
-                tags.get('style'),
+                final_genre,      # 🌟 Строгий главный жанр (один из 5 канонических)
+                final_style,      # 🌟 Музыкальный стиль / Направление
                 tags.get('form')
             ))
+            
             inserted_count += 1
             
         conn.commit()

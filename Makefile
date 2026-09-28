@@ -24,6 +24,7 @@ all: venv
 	cp m3u2db.py $(SHARE_DIR)/
 	cp refresh-embeddings.py $(SHARE_DIR)/
 	cp extract_tags.py $(SHARE_DIR)/
+	cp audit.py $(SHARE_DIR)/
 
 	@if [ -z "$(HAS_ALIASES)" ]; then  									                              \
 		echo "📦 [Деплой RAG]: Генерация локальных алиасов в $(BASH_MUSIC)..."							    ; \
@@ -31,6 +32,7 @@ all: venv
 		echo "alias m3u2yaml='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2yaml.py'"                       >> $(BASH_MUSIC)             ; \
 		echo "alias m3u2db='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/m3u2db.py'"                           >> $(BASH_MUSIC)             ; \
 		echo "alias refresh-embeddings='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/refresh-embeddings.py'"   >> $(BASH_MUSIC)             ; \
+		echo "alias audit='$(VENV_DIR)/bin/python3 $(SHARE_DIR)/audit.py'"                             >> $(BASH_MUSIC)             ; \
 	fi
 
 	@echo "🎉 Изменения применены."
