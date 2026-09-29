@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 try:
     from mutagen.mp3 import MP3
-    from mutagen.id3 import ID3, TIT2, TPE1, TALB, TCON, ID3NoHeaderError
+    from mutagen.id3 import ID3, TIT2, TPE1, TALB, TCON, TXXX, ID3NoHeaderError
 except ImportError:
     print("❌ Ошибка: Не установлена библиотека mutagen. Выполните: pip install mutagen")
     sys.exit(1)
@@ -26,14 +26,12 @@ MUSIC_ROOT = Path('~/Музыка').expanduser()
 
 def sync_all_database_to_tags():
     print(f"🔄 [db2tags]: Запуск сквозной инкрементальной синхронизации с Cubi ({DB_HOST})...")
-    print(f"📁 Корневая папка медиатеки десктопа: {MUSIC_ROOT}")
     
     try:
         conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
         cur = conn.cursor()
         
-        # 🔍 ВЫБИРАЕМ ВСЕ БОЕВЫЕ ТРЕКИ ИЗ СУБД (Игнорируем черновики < 1000)
-        # Обязательно тянем ваше новое поле updated_at
+        # Выбираем все боевые треки из СУБД (Игнорируем черновики < 1000)
         cur.execute("""
             SELECT file_path, title, artist, album, genre, style, form, updated_at 
             FROM tracks 
@@ -63,21 +61,23 @@ def sync_all_database_to_tags():
             # Строим абсолютный физический путь к MP3-файлу на диске десктопа
             full_local_path = MUSIC_ROOT / db_file_path
             
+            # 🌟 ИСПРАВЛЕНО: Если файла нет на диске, тихо инкрементируем счетчик и идем дальше без вывода ошибок
             if not full_local_path.exists():
                 missing_files_count += 1
                 continue
 
-            # 🌟 МАГИЯ ИНКРЕМЕНТАЛЬНОГО СРАВНЕНИЯ ВРЕМЕНИ:
-            # Получаем время последнего изменения файла на диске (mtime) и переводим в datetime (UTC/локальный)
+            # Получаем время изменения файла на диске с поддержкой временной зоны
             file_mtime_ts = os.path.getmtime(full_local_path)
             file_mtime = datetime.datetime.fromtimestamp(file_mtime_ts, datetime.timezone.utc)
             
-            # Гарантируем, что временная метка из базы тоже содержит информацию о таймзоне (Postgres timestamp tz)
+            # Приводим временную метку из базы данных к UTC
             if db_updated_at.tzinfo is None:
                 db_updated_at = db_updated_at.replace(tzinfo=datetime.timezone.utc)
+            else:
+                db_updated_at = db_updated_at.astimezone(datetime.timezone.utc)
 
-            # ЕСЛИ ИЗМЕНЕНИЯ В СУБД СДЕЛАНЫ ПОЗДНЕЕ, ЧЕМ МЕНЯЛСЯ ФАЙЛ — НАДО ШИТЬ ТЕГИ!
-            if db_updated_at > file_mtime:
+            # Проверяем, были ли изменения в СУБД сделаны позднее (с буфером дребезга в 5 секунд)
+            if db_updated_at > (file_mtime + datetime.timedelta(seconds=5)):
                 try:
                     audio = MP3(full_local_path, ID3=ID3)
                     if audio.tags is None:
@@ -89,9 +89,9 @@ def sync_all_database_to_tags():
                     if db_album: audio.tags.add(TALB(encoding=3, text=db_album))
                     if db_genre: audio.tags.add(TCON(encoding=3, text=db_genre))
                     
-                    # Переносим ИИ-теги стилей и форм во внутренние TXXX-фреймы
-                    if db_style: audio.tags.add(type(audio.tags.get('TXXX:style') or TIT2)(encoding=3, desc='style', text=db_style))
-                    if db_form: audio.tags.add(type(audio.tags.get('TXXX:form') or TIT2)(encoding=3, desc='form', text=db_form))
+                    # 🌟 ИСПРАВЛЕНО: Каноническая и безопасная прошивка TXXX-фреймов для mutagen без использования type()
+                    if db_style: audio.tags.add(TXXX(encoding=3, desc='style', text=db_style))
+                    if db_form: audio.tags.add(TXXX(encoding=3, desc='form', text=db_form))
                     
                     # Сохраняем файл, полностью вырезая ломающийся старый блок ID3v1
                     audio.save(v1=2)
@@ -109,7 +109,7 @@ def sync_all_database_to_tags():
         print(f"🎯 [Итог инспекции db2tags]: Проверено записей базы: {total_checked}")
         print(f"🚀 Физически обновлено и прошито файлов MP3 на диске: {updated_count}")
         if missing_files_count > 0:
-            print(f"⚠️ Локальных файлов из базы не найдено на диске десктопа: {missing_files_count}")
+            print(f"🌲 Пропущено (отсутствуют на диске десктопа): {missing_files_count} треков.")
         print("=" * 80)
         
     except Exception as e:
