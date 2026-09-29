@@ -1,195 +1,184 @@
 DOWNLOAD_DIR="$HOME/Загрузки"
 
 check_m3u_name () {
-    echo "$1" | egrep '\.m3u$'
+    echo "$1" | egrep -q '\.m3u$' && echo "ok"
 }
 
 check_mp3_name () {
-    echo "$1" | egrep '\.mp3$'
+    echo "$1" | egrep -q '\.mp3$' && echo "ok"
+}
+
+update_artist () {
+	if [ -z "$1" ] || [ -z "$2" ]; then
+		echo "❌ Укажите старое и новое наименования исполнителя"
+		exit 1
+	fi
+	echo "update tracks set artist = '"$2"'  where artist = '"$1"' ;" | psql
+}
+
+drop_fantom () {
+    if [ -z "$1" ]; then
+        echo "❌ Укажите номер плейлиста для удаления из СУБД, например: drop_fantom 5005"
+        return 1
+    fi
+    echo "🗑️  [СУБД Cubi]: Полностью вычищаю плейлист №$1 и все его треки..."
+    # Удаляем каскадно из обеих таблиц
+    psql -c "DELETE FROM tracks WHERE playlist_number = $1; DELETE FROM playlists WHERE playlist_number = $1;"
+    echo "✅ Очистка завершена. Запустите audit для проверки."
 }
 
 set_genre () {
-	if [ -z "$(check_mp3_name "$1")" ]; then
-		echo "❌ Входной mp3-файл не указан."
-		return 1
-	fi
-	if [ -z "$2" ]; then
-		echo "❌ Не указан жанр."
-		return 2
-	fi
-	
-	eyeD3 --encoding utf8 --genre "$2" "$1"
+    [[ -z "$(check_mp3_name "$1")" ]] && { echo "❌ Входной mp3-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан жанр."; return 2; }
+    eyeD3 --encoding utf8 --genre "$2" "$1"
+}
+
+set_genre_for_playlist () {
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан жанр."; return 2; }
+    
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        set_genre "$line" "$2"
+    done < "$1"
 }
 
 set_album () {
-	if [ -z "$(check_mp3_name "$1")" ]; then
-		echo "❌ Входной mp3-файл не указан."
-		return 1
-	fi
-	if [ -z "$2" ]; then
-		echo "❌ Не указан альбом."
-		return 2
-	fi
-	
-	eyeD3 --encoding utf8 --album "$2" "$1"
+    [[ -z "$(check_mp3_name "$1")" ]] && { echo "❌ Входной mp3-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан альбом."; return 2; }
+    eyeD3 --encoding utf8 --album "$2" "$1"
+}
+
+set_album_for_playlist () {
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан альбом."; return 2; }
+    
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        set_album "$line" "$2"
+    done < "$1"
 }
 
 set_artist () {
-	if [ -z "$(check_mp3_name "$1")" ]; then
-		echo "❌ Входной mp3-файл не указан."
-		return 1
-	fi
-	if [ -z "$2" ]; then
-		echo "❌ Не указан исполнитель."
-		return 2
-	fi
-	
-	eyeD3 --encoding utf8 --artist "$2" "$1"
+    [[ -z "$(check_mp3_name "$1")" ]] && { echo "❌ Входной mp3-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан исполнитель."; return 2; }
+    eyeD3 --encoding utf8 --artist "$2" "$1"
+}
+
+set_artist_for_playlist () {
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан исполнитель."; return 2; }
+    
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        set_artist "$line" "$2"
+    done < "$1"
 }
 
 local_processing () {
-	if [ -z "$(check_m3u_name "$1")" ]; then
-		echo "❌ Входной m3u-файл не указан."
-		return 1
-	fi
-	
-	check_playlist_files "$1" || return 1
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    
+    check_playlist_files "$1" || return 1
 
-	fix_garbled_tags $1
-	sync_music_files $1
-	m3u2db $1
-	    
-	echo "========================================================="
-	echo "✅ Локальная обработка плейлиста $1 завершена."
-	echo "========================================================="
+    fix_garbled_tags "$1"
+    sync_music_files "$1"
+    m3u2db "$1"
+        
+    echo "========================================================="
+    echo "✅ Локальная обработка плейлиста $1 завершена."
+    echo "========================================================="
 }
 
 show_first () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1
-    fi
-    eyeD3 "$(head -n 1 $1)"
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    eyeD3 "$(head -n 1 "$1")"
 }
 
 fix_garbled_tags () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1
-    fi
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
 
     echo "🧹 [Лечение кодировки]: Анализирую файлы из плейлиста $1..."
-    
-    # Считываем плейлист, отсекая заголовки m3u и пустые строки
-    cat "$1" | tr -d '\r' | while read -r line; do
+    while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" =~ ^# ]] && continue
         
         if [ -f "$line" ]; then
             echo "🔧 Восстановление Юникода в файле: $line"
-            
-            # Именуем встроенную утилиту из нашего виртуального окружения RAG-пайплайна.
-            # Флаг -e cp1251 указывает исходную сломанную Windows-кодировку.
-            # Флаг -d (dry-run) отсутствует, поэтому утилита запишет чистый UTF-8 в ID3v2.4!
             /usr/share/schulbert/rag-pipeline/.venv/bin/mid3iconv -e cp1251 --remove-v1 "$line" >/dev/null 2>&1
-	    eyeD3 $line
+            eyeD3 "$line" >/dev/null 2>&1
         else
             echo "⚠️ Файл не найден: $line"
         fi
-    done
-    
-    echo "========================================================="
-    echo "🎉 Восстановление завершено! Теги переведены в чистый UTF-8."
+    done < "$1"
     echo "========================================================="
 }
 
 find_mp3 () {
-	find "$1" -name '*.mp3' -type f | sort
+    find "$1" -name '*.mp3' -type f | sort
 }
 
 check_playlist_files () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1
-    fi
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
 
-    sed -i "s/'//g" $1
+    # Убираем опасные одиночные кавычки из имен файлов внутри m3u
+    sed -i "s/'//g" "$1"
 
-    # Читаем файл напрямую, без использования пайпа '|'
     while IFS= read -r l || [[ -n "$l" ]]; do
-        # Удаляем символ возврата каретки \r (актуально для Windows-плейлистов)
         l=$(echo "$l" | tr -d '\r')
-        
-        # Полностью игнорируем мета-комментарии плейлиста и пустые строки
         [[ -z "$l" || "$l" =~ ^# ]] && continue
         
-        # Проверяем физическое наличие файла
         if [ ! -f "$l" ]; then
             echo "❌ Ошибка: Файл \"$l\" отсутствует в медиатеке десктопа!"
-            return 1 # Теперь этот return честно вернет код 1 всей функции!
+            return 1
         fi
-    done < "$1" # Перенаправляем файл на вход цикла
-    
+    done < "$1"
     return 0
 }
 
 upload_yaml () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1
-    fi
-    check_playlist_files $1 || exit 1
-    m3u2yaml $1
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    # 🌟 ИСПРАВЛЕНО: return 1 вместо exit 1, чтобы не падал терминал
+    check_playlist_files "$1" || return 1
+    
+    m3u2yaml "$1"
     yaml_file="$(echo "$1" | sed -E 's/\.m3u$/.yaml/')"
     if [ ! -f "$yaml_file" ]; then
         echo "❌ Не удалось сформировать yaml-файл."
         return 1
     fi
-    yc storage s3 cp $yaml_file s3://playlists-dispatcher/playlists/
-    rm $yaml_file
+    yc storage s3 cp "$yaml_file" s3://playlists-dispatcher/playlists/
+    rm "$yaml_file"
     echo "🍵 Выгрузка $yaml_file в бакет завершена."
 }
 
 sync_music_files () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1
-    fi
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
 
     SCHULBERT_URL="schulbert:/var/lib/mpd/music"
-
     echo "🚀 [Синхронизация]: Переношу аудиофайлы из плейлиста $1 на Cubi..."
-    # Синхронизируем согласно плейлиста:
     rsync -avz --delete --timeout=30 --partial --exclude='.*' --files-from="$1" . "$SCHULBERT_URL"
 
-    # Отправляем и сам плейлист, красиво заменяя /music на /playlists в пути
     TARGET_PLAYLIST_URL=$(echo "$SCHULBERT_URL" | sed 's/\/music/\/playlists/')
-    scp "$1" "$TARGET_PLAYLIST_URL"
+    # 🌟 ИСПРАВЛЕНО: перенаправляем ввод в /dev/null, чтобы scp не жрал stdin цикла
+    scp "$1" "$TARGET_PLAYLIST_URL" </dev/null
     
     echo "🎵 [Синхронизация]: Запуск mpc update на Cubi..."
-    ssh schulbert mpc update
+    # 🌟 ИСПРАВЛЕНО: флаг -n запрещает ssh читать stdin цикла!
+    ssh -n schulbert mpc update
 }
 
 remove_deprecated_tags () {
-    if [ -z "$(check_m3u_name "$1")" ]; then
-        echo "❌ Входной m3u-файл не указан."
-        return 1 # 🌟 ИСПРАВЛЕНО: Защита сессии терминала
-    fi
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
     
-    # Читаем плейлист построчно, полностью игнорируя заголовки #EXTM3U и пустые строки
-    cat "$1" | tr -d '\r' | while read -r line; do
+    while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" =~ ^# ]] && continue
-        
         if [ -f "$line" ]; then
-            # 🌟 Принудительно вырезаем ломающийся тег ID3v1 из mp3
             eyeD3 --remove-v1 "$line" >/dev/null 2>&1
         fi
-    done
+    done < "$1"
 }
 
 update_tags () {
-    # Сортированный список m3u файлов текущей папки
     ls -1 *.m3u 2>/dev/null | while read -r l; do
-        # Корректно меняем расширение .m3u на .sh
         sh_file="$(echo "$l" | sed -E 's/\.m3u$/.sh/')"
         sh_path="$DOWNLOAD_DIR/$sh_file" 
         
@@ -201,36 +190,40 @@ update_tags () {
         echo "🏭 Обрабатывается файл плейлиста: $l"
         echo "========================================================="
         
-        echo "🧹 [Очистка]: Вырезаю устаревшие теги ID3v1..."
-        # 🌟 ИСПРАВЛЕНО: Передаем текущий плейлист из цикла ($l), а не аргумент функции ($1)
         remove_deprecated_tags "$l"
-
-        # Переносим скрипт из Загрузок в текущую папку альбома
         mv "$sh_path" ./
-	    
-        # Запускаем прошивку русских тегов в mp3-файлы
-        echo "🎵 [Прошивка]: Запуск скрипта обогащения метаданных $sh_file..."
+        echo "🎵 [Прошивка]: Запуск скрипта $sh_file..."
         sh "./$sh_file"
-	    
-        # Переносим отработавший скрипт в архивную скрытую папку .done
+        
         mkdir -p .done
         mv "$sh_file" .done/
-
-        # 🌟 ИСПРАВЛЕНО: Запускаем вашу крутую синхронизацию для текущего плейлиста $l
-        sync_music_files "$l"
-	m3u2db $l
-	    
-        echo "✅ Прошивка и деплой для плейлиста $l завершены."
+        local_processing "$l"
         echo "========================================================="
     done
 }
 
 alias lsm3u='ls -1 *.m3u'
 alias lsyml='ls -1 *.yaml'
+alias lsclassic="lsm3u | egrep '^1'"
+alias lsrock="lsm3u    | egrep '^2'"
+alias lsjazz="lsm3u    | egrep '^3'"
+alias lsbluez="lsm3u   | egrep '^4'"
+alias lspop="lsm3u     | egrep '^5'"
+alias lsethnic="lsm3u  | egrep '^6'"
+
+alias sync_classic='for f in 1*.m3u; do sync_music_files $f ; done'
+alias sync_rock='for    f in 2*.m3u; do sync_music_files $f ; done'
+alias sync_jazz='for    f in 3*.m3u; do sync_music_files $f ; done'
+alias sync_bluez='for   f in 4*.m3u; do sync_music_files $f ; done'
+alias sync_pop='for     f in 5*.m3u; do sync_music_files $f ; done'
+alias sync_ethnic='for  f in 6*.m3u; do sync_music_files $f ; done'
+
 alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "music-ai-search.sql" player'
 alias psql='psql -h schulbert -d player -U player'
 
 alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
 alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
 alias refresh-embeddings='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/refresh-embeddings.py'
+alias audit='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/audit.py'
+alias db2tags='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/db2tags.py'
 
