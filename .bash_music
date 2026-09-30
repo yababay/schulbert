@@ -220,6 +220,7 @@ alias sync_ethnic='for  f in 6*.m3u; do sync_music_files $f ; done'
 
 alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "music-ai-search.sql" player'
 alias psql='psql -h schulbert -d player -U player'
+alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;'"
 
 alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
 alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
