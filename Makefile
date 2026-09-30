@@ -20,13 +20,20 @@ CURRENT_USER = $(shell whoami)
 # По умолчанию запускаем создание venv и установку правок
 all: venv setup
 
+unit_tests:
+	cp tracks_checker.py  $(SHARE_DIR)/
+	$(VENV_DIR)/bin/python3 $(SHARE_DIR)/tracks_checker.py 
+
 setup: venv
 	@echo "⚙️  Обновление скриптов голосового помощника…"
 	rm -f $(SHARE_DIR)/*.py
 	rm -f $(SHARE_DIR)/*.txt
 	
 	# 🌟 ИСПРАВЛЕНО: Копируем актуальный main.py из корня новой ветки
-	cp main.py  $(SHARE_DIR)/
+	cp command_checker.py  $(SHARE_DIR)/
+	cp playlist_checker.py $(SHARE_DIR)/
+	cp tracks_checker.py   $(SHARE_DIR)/
+	cp main.py $(SHARE_DIR)/
 	cp .env     $(SHARE_DIR)/.env 2>/dev/null || true
 	cp $(MUSIC_VOICE_ASSISTANT_SERVICE) $(SYSTEMD_USER_DIR)/
 
@@ -44,14 +51,14 @@ setup: venv
 	@echo "========================================================="
 
 venv:
-	@if [ ! -d "$(VENV_DIR)" ]; then                              \
+	@if [ ! -d "$(VENV_DIR)" ]; then                          \
 		sudo mkdir -p $(VENV_DIR)                           ; \
 		sudo chown $(CURRENT_USER) -R $(SHARE_DIR)          ; \
 		if [ -f ".env" ]; then                                \
-			cp .env $(SHARE_DIR)/.env   		    ; \
-		else						      \
-			touch $(SHARE_DIR)/.env                     ; \
-		fi						    ; \
+			cp .env $(SHARE_DIR)/.env   		            ; \
+		else						                          \
+			touch $(SHARE_DIR)/.env                         ; \
+		fi						                            ; \
 		python3 -m venv $(SHARE_DIR)/.venv                  ; \
 		cp $(REQUIREMENTS_SRC) $(REQUIREMENTS_DST)          ; \
 		$(VENV_DIR)/bin/pip3 install -r $(REQUIREMENTS_DST) ; \
@@ -68,4 +75,3 @@ git_local:
 
 git_remote: 
 	git push origin voice-assistant
-
