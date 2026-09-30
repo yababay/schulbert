@@ -1,8 +1,10 @@
 import os
+import re
 import io
 import json
 import wave
 import subprocess
+import psycopg2
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Query
 from vosk import Model as VoskModel, KaldiRecognizer, SetLogLevel
@@ -12,16 +14,25 @@ from yargy import Parser, rule, or_
 from yargy.predicates import gram
 from yargy.pipelines import morph_pipeline
 from yargy.interpretation import fact
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения
+load_dotenv()
 
 # Глушим отладочный C++ шум Vosk для чистоты серверных логов
 SetLogLevel(-1)
 
-app = FastAPI()
+app = FastAPI(root_path='/api')
 
 # Базовые пути проекта
 BASE_DIR = Path(__file__).resolve().parent
 VOSK_MODEL_PATH = str(BASE_DIR / "models" / "vosk-model-small-ru")
 E5_MODEL_PATH = str(BASE_DIR / "models" / "multilingual-e5-large")
+
+PG_USER = os.getenv("PG_USER", "player")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "")
+PG_DATABASE = os.getenv("PG_DATABASE", "player")
+
 
 vosk_model = None
 e5_model = None
@@ -180,10 +191,23 @@ def find_full_playlist_name(prefix: str) -> str:
 # =====================================================================
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 
-# ... (весь ваш предыдущий импорт, грамматика Yargy, инициализация Vosk и эндпоинт /voice-search остаются без изменений) ...
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+# ... (весь предыдущий импорт, грамматика Yargy, функция execute_mpc и эндпоинт /voice-search остаются без изменений) ...
+
+# 🌟 ВАЖНО ДЛЯ SVELTE: Разрешаем CORS-запросы, чтобы фронтенд, запущенный на другом порту 
+# или на десктопе, мог беспрепятственно общаться с API нашего Cubi
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В локальной сети можно открыть для всех
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =====================================================================
-# 5. СЕТЕВОЙ REST-ПУЛЬТ ДЛЯ КНОПОЧНЫХ УСТРОЙСТВ (Калька с mpc)
+# 5. REST-ИНТЕРФЕЙС УПРАВЛЕНИЯ ПЛЕЕРОМ (Расширенный)
 # =====================================================================
 
 def execute_mpc(command: str):
@@ -201,70 +225,162 @@ def execute_mpc(command: str):
         print(f"❌ Непредвиденное исключение при вызове mpc: {e}")
 
 @app.post("/mpc")
-@app.get("/mpc")  # Добавляем GET, чтобы команды можно было слать даже просто из адресной строки браузера
+@app.get("/mpc")
 def mpc_network_remote(
-    action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear"),
+    action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear, status"),
     volume: str = Query(None, description="Изменение громкости, например: +5, -10, 50"),
-    load: str = Query(None, description="4-значный номер плейлиста для поиска и загрузки, например: 2022")
+    load: str = Query(None, description="4-значный номер плейлиста для поиска и загрузки, например: 2022"),
+    track: int = Query(None, description="Номер трека в плейлисте для мгновенного запуска, например: 5")
 ):
-    """
-    Универсальный сетевой шлюз к утилите mpc.
-    Позволяет управлять плеером по сети через простые URL-параметры.
-    """
+    """Универсальный сетевой шлюз к утилите mpc с поддержкой выбора трека и считывания статуса."""
     executed_commands = []
 
-    # 1. Обработка базовых действий (play, pause, toggle, next, prev, clear)
+    # 🌟 ОБРАБОТКА ХОЛОДНОГО СТАТУСА (Выносим в приоритетную проверку)
+    if action == "status":
+        print("🕹️ [REST-Пульт]: Запрос статуса воспроизведения и громкости")
+        
+        # 1. Получаем текущую песню (Исполнитель - Название)
+        res_track = subprocess.run("mpc current", shell=True, capture_output=True, text=True)
+        current_track = res_track.stdout.strip()
+        
+        # 2. Вычисляем состояние паузы. В mpc при паузе вторая строка вывода содержит "[paused]"
+        res_state = subprocess.run("mpc", shell=True, capture_output=True, text=True)
+        if "[paused]" in res_state.stdout:
+            current_track += " [paused]"
+            
+        # 3. Вытаскиваем точное число громкости
+        res_vol = subprocess.run("mpc volume", shell=True, capture_output=True, text=True)
+        volume_value = 50  # Дефолт на случай n/a
+        volume_match = re.search(r'volume:\s*(\d+)%', res_vol.stdout)
+        if volume_match:
+            volume_value = int(volume_match.group(1))
+
+        if not current_track or "volume:" in current_track:
+            current_track = "Воспроизведение остановлено или очередь пуста."
+            
+        return {
+            "status": "success",
+            "mode": "syntax",
+            "command": "status",
+            "track": current_track,
+            "volume": volume_value
+        }
+
+    # --- ВСЯ ОСТАЛЬНАЯ ВАША СТАНДАРТНАЯ РАБОЧАЯ ЛОГИКА ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ---
     if action:
         valid_actions = {
-            "play": "mpc play",
-            "pause": "mpc pause",
-            "toggle": "mpc toggle",
-            "next": "mpc next",
-            "prev": "mpc prev",
+            "play": "mpc play", 
+            "pause": "mpc pause", 
+            "toggle": "mpc toggle", 
+            "next": "mpc next", 
+            "prev": "mpc prev", 
             "clear": "mpc clear"
         }
         if action in valid_actions:
             execute_mpc(valid_actions[action])
             executed_commands.append(f"action: {action}")
         else:
-            raise HTTPException(status_code=400, detail=f"Неизвестное действие '{action}'. Допустимы: {list(valid_actions.keys())}")
+            raise HTTPException(status_code=400, detail=f"Неизвестное действие '{action}'")
 
-    # 2. Обработка регулировки громкости (например: +5, -10 или абсолютное значение 50)
     if volume:
-        # Проверяем синтаксис (должно начинаться с + или - или быть просто числом)
         if re.match(r'^[+-]?\d+$', volume):
             execute_mpc(f"mpc volume {volume}")
             executed_commands.append(f"volume: {volume}")
         else:
-            raise HTTPException(status_code=400, detail="Неверный формат громкости. Используйте: +5, -10 или 70")
+            raise HTTPException(status_code=400, detail="Неверный формат громкости")
 
-    # 3. Обработка загрузки плейлиста по префиксу с автоматическим поиском имени файла
+    # Модернизированный блок загрузки плейлиста и трека
     if load:
         if re.match(r'^\d{1,4}$', load):
-            # Приводим к 4 цифрам с лидирующими нулями (канон проекта)
             prefix = f"{int(load):04d}"
-            
-            # Задействуем вашу функцию поиска полного имени плейлиста в mpd
             full_playlist_name = find_full_playlist_name(prefix)
             
             if full_playlist_name:
-                print(f"🕹️ [REST-Пульт]: По префиксу {prefix} найден плейлист \"{full_playlist_name}\"")
-                execute_mpc(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play")
-                executed_commands.append(f"load_playlist: {full_playlist_name}")
+                print(f"🕹️ [REST-Пульт]: По префиксу {prefix} загружаю \"{full_playlist_name}\"")
+                
+                # Если передан номер трека, мы очищаем, загружаем плейлист, но команду 'play' 
+                # вызываем с указанием конкретной позиции в очереди (mpc play X)
+                if track and track > 0:
+                    execute_mpc(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play {track}")
+                    executed_commands.append(f"load_playlist: {full_playlist_name}, play_track: {track}")
+                else:
+                    execute_mpc(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play")
+                    executed_commands.append(f"load_playlist: {full_playlist_name}")
             else:
-                raise HTTPException(status_code=444, detail=f"Плейлист с префиксом {prefix}- не найден в медиатеке.")
+                raise HTTPException(status_code=444, detail=f"Плейлист с префиксом {prefix}- не найден")
         else:
-            raise HTTPException(status_code=400, detail="Номер плейлиста должен состоять только из цифр (до 4 знаков)")
+            raise HTTPException(status_code=400, detail="Номер плейлиста должен состоять только из цифр")
+    
+    # Если передали ТОЛЬКО номер трека (без параметра load) — переключаем внутри текущего играющего списка
+    elif track and track > 0:
+        execute_mpc(f"mpc play {track}")
+        executed_commands.append(f"play_track_in_current: {track}")
 
-    # Если эндпоинт вызвали вообще без параметров
     if not executed_commands:
-        return {"status": "ignored", "message": "Не передано ни одного параметра (action, volume или load)."}
+        return {"status": "ignored", "message": "Не передано параметров."}
 
-    return {
-        "status": "success",
-        "mode": "rest_remote",
-        "executed": executed_commands
-    }
+    return {"status": "success", "mode": "rest_remote", "executed": executed_commands}
+
+
+# =====================================================================
+# 6. JSON-ЭНДПОИНТ ДЛЯ БУДУЩЕГО SVELTE-ФРОНТЕНДА (Каталог фонотеки)
+# =====================================================================
+@app.get("/catalog")
+def get_media_catalog(id: int = Query(None, description="ID плейлиста для получения его треков")):
+    """
+    Эндпоинт отдает структуру данных нашей фонотеки.
+    Без параметров: список всех уникальных плейлистов (для левой панели).
+    С параметром ?id=2022: список песен выбранного плейлиста (для правой панели).
+    """
+    # 🔌 Подключаемся к нашей очищенной PostgreSQL от имени пользователя player
+    # (В будущем эти параметры будут красиво стягиваться из файла .env)
+    try:
+        # conn = psycopg2.connect("dbname=player user=player host=localhost")
+        conn = psycopg2.connect(f"dbname={PG_DATABASE} user={PG_USER} password={PG_PASSWORD} host=localhost")
+        cur = conn.cursor()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка подключения к СУБД: {e}")
+
+    # РЕЖИМ А: Запрос треков конкретного плейлиста (Правая панель Svelte)
+    if id is not None:
+        cur.execute("""
+            SELECT track_number, title, artist, album 
+            FROM tracks 
+            WHERE playlist_number = %s 
+            ORDER BY track_number ASC;
+        """, (id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        tracks_list = []
+        for row in rows:
+            tracks_list.append({
+                "track_number": row[0],
+                "title": row[1],
+                "artist": row[2],
+                "album": row[3]
+            })
+        return {"mode": "playlist_tracks", "playlist_id": id, "total": len(tracks_list), "tracks": tracks_list}
+
+    # РЕЖИМ Б: Запрос списка всех плейлистов (Левая панель Svelte, исключая черновики < 1000)
+    cur.execute("""
+        SELECT DISTINCT playlist_number, COALESCE(album, 'Плейлист ' || playlist_number) 
+        FROM tracks 
+        WHERE playlist_number >= 1000 
+        ORDER BY playlist_number ASC;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    playlists_list = []
+    for row in rows:
+        playlists_list.append({
+            "playlist_id": row[0],
+            "name": row[1]
+        })
+    return {"mode": "playlists_index", "total": len(playlists_list), "playlists": playlists_list}
 
 @app.post("/voice-search")
 async def receive_voice_and_play(file: UploadFile = File(...)):
@@ -362,4 +478,5 @@ if __name__ == "__main__":
     import uvicorn
     print("🚀 [Старт]: Сетевой FastAPI-сервер запускается на порту 8080...", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
 

@@ -12,7 +12,7 @@ WorkingDirectory=/usr/share/schulbert
 Environment="PATH=/usr/share/schulbert/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
 # Теперь пишем короткие, красивые пути относительно WorkingDirectory
-ExecStart=python3 music-ai-search.py
+ExecStart=python3 main.py
 
 Restart=on-failure
 RestartSec=5s
