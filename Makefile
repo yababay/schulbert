@@ -17,6 +17,7 @@ all:
 	cp command_checker.py $(SHARE_DIR)
 	cp playlist_checker.py $(SHARE_DIR)
 	cp track_checker.py $(SHARE_DIR)
+	cp audio_conveyor.py $(SHARE_DIR)
 	cp main.py $(SHARE_DIR)
 	cp requirements.txt $(SHARE_DIR)
 	mkdir -p $(SYSTEMD_USER_DIR)
