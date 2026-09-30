@@ -6,6 +6,7 @@
 PROJECT_NAME = schulbert
 SHARE_DIR = /usr/share/$(PROJECT_NAME)
 SYSTEMD_USER_DIR = $(HOME)/.config/systemd/user
+MUSIC_AI_SEARCH_SERVICE=music-ai-search.service
 
 .PHONY: all psql git git_local git_remote
 
@@ -21,7 +22,7 @@ all:
 	cp main.py $(SHARE_DIR)
 	cp requirements.txt $(SHARE_DIR)
 	mkdir -p $(SYSTEMD_USER_DIR)
-	cp music-ai-search.service $(SYSTEMD_USER_DIR)/
+	cp $(MUSIC_AI_SEARCH_SERVICE) $(SYSTEMD_USER_DIR)/
 
 	@echo "========================================================="
 	@echo "✅ Скрипты и юнит обновлены, перезапускаем новую версию…"
