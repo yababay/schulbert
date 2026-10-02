@@ -28,6 +28,22 @@ drop_fantom () {
     echo "✅ Очистка завершена. Запустите audit для проверки."
 }
 
+set_composer () {
+    [[ -z "$(check_mp3_name "$1")" ]] && { echo "❌ Входной mp3-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан жанр."; return 2; }
+    eyeD3 --encoding utf8 --composer "$2" "$1"
+}
+
+set_composer_for_playlist () {
+    [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
+    [[ -z "$2" ]] && { echo "❌ Не указан композитор."; return 2; }
+    
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        set_composer "$line" "$2"
+    done < "$1"
+}
+
 set_genre () {
     [[ -z "$(check_mp3_name "$1")" ]] && { echo "❌ Входной mp3-файл не указан."; return 1; }
     [[ -z "$2" ]] && { echo "❌ Не указан жанр."; return 2; }
@@ -221,7 +237,7 @@ alias sync_ethnic='for  f in 6*.m3u; do sync_music_files $f ; done'
 
 alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "$DB_DUMP_FN" player && yc storage s3 mv "$DB_DUMP_FN" s3://playlists-dispatcher/playlists/'
 alias psql='psql -h schulbert -d player -U player'
-alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;'"
+alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;' > ~/.3f-lab/_projects/schulbert/.unit_test_pieces.py"
 alias commit=' git add . && git commit -a && git push origin playlists'
 
 alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
