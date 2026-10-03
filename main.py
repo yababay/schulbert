@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 import os
 import sys
-import json
-import wave
 import requests
 from pathlib import Path
-from vosk import Model, KaldiRecognizer, SetLogLevel
 
-# 🌟 ИСПРАВЛЕНО: Импортируем вашу эталонную функцию записи звука 
-# (укажите правильный путь импорта, если она лежит в соседнем библиотечном модуле)
+# Импортируем вашу эталонную функцию записи звука из локальной библиотеки
 from audio_recorder import record_audio  
 
-# ИИ-распознаватели каскадного конвейера
-from command_checker import check_system_command
-from playlist_checker import check_playlist_phrase
-from tracks_checker import check_direct_track_target
+# Импортируем сквозной конвейер распознавателей (он теперь одинаковый везде!)
+from audio_conveyor import record_voice_to_text, process_cascade_routing
 
 BASE_DIR = Path(__file__).resolve().parent
 from dotenv import load_dotenv
@@ -25,17 +19,15 @@ SERVER_TEXT_URL = f"http://{MUSIC_SERVER}:8080/text-search"
 API_MPC_URL = f"http://{MUSIC_SERVER}/api/mpc"
 
 AUDIO_WAV = "/tmp/client_voice.wav"
-VOSK_MODEL_PATH = "/usr/share/schulbert/music-voice-assistant/models/vosk-model-small-ru"
 
 def show_notification(text, icon="audio-speakers", title="Шульберт Пульт"):
     import subprocess
     subprocess.run(['notify-send', '-t', '4000', '-i', icon, title, text])
 
 def main():
-    show_notification("Слушаю вас...", icon="audio-input-microphone")
+    show_notification("Слушаю вас! Озвучьте команду...", icon="audio-input-microphone")
     
-    # 🌟 ИСПРАВЛЕНО: Нативно вызываем вашу общую функцию записи звука
-    # Она сама запишет arecord, прогонит через ffmpeg и сохранит в AUDIO_WAV
+    # Шаг 1. Запись звука через вашу общую функцию
     try:
         record_audio(AUDIO_WAV, duration=5)
     except Exception as e:
@@ -47,21 +39,10 @@ def main():
         show_notification("Аудиофайл записи не найден.", icon="dialog-error")
         sys.exit(1)
         
-    # Локальная расшифровка сохраненного wav-файла движком Vosk
-    try:
-        SetLogLevel(-1)
-        model = Model(VOSK_MODEL_PATH)
-        wf = wave.open(AUDIO_WAV, "rb")
-        rec = KaldiRecognizer(model, wf.getframerate())
-        data = wf.readframes(wf.getnframes())
-        wf.close()
-        res = json.loads(rec.Result() if rec.AcceptWaveform(data) else rec.FinalResult())
-        raw_speech = res.get('text', '').strip()
-    except Exception as e:
-        print(f"❌ Ошибка Vosk: {e}")
-        raw_speech = ""
-
-    # Полностью очищаем за собой диск десктопа, буквы уже у нас в памяти!
+    # Шаг 2. Переводим звук в буквы силами встроенного в конвейер Vosk
+    raw_speech = record_voice_to_text(AUDIO_WAV)
+    
+    # Нам больше не нужны звуковые байты, буквы уже в памяти!
     if os.path.exists(AUDIO_WAV): 
         os.remove(AUDIO_WAV)
 
@@ -69,48 +50,42 @@ def main():
         show_notification("Команда не расслышана. Повторите громче.", icon="dialog-warning")
         sys.exit(0)
 
-    print(f"📋 [Каскад]: Vosk зафиксировал текст: \"{raw_speech}\"")
+    print(f"📋 [Десктоп]: Vosk зафиксировал текст: \"{raw_speech}\"")
 
     # =====================================================================
-    # КАСКАДНЫЙ КОНВЕЙЕР РАСПОЗНАВАТЕЛЕЙ СТАРШЕЙ ШКОЛЫ
+    # 🌟 ЕДИНЫЙ КАСКАДНЫЙ КОНВЕЙЕР «СТАРОЙ ШКОЛЫ» НА ДЕСКТОПЕ
     # =====================================================================
-
-    # РУБЕЖ 1: Системные команды управления MPD плером (play, pause, next, stop)
-    system_cmd = check_system_command(raw_speech)
-    if system_cmd:
-        print(f"🎯 [Каскад 1]: Найдена команда плеера: '{system_cmd}'")
-        show_notification(f"Выполняю команду: {system_cmd.upper()} 🛠️", icon="media-playback-start")
-        requests.post(f"{API_MPC_URL}?cmd={system_cmd}")
-        sys.exit(0)
-
-    # РУБЕЖ 2: Явное числовое выделение номера плейлиста через Yargy
-    playlist_num = check_playlist_phrase(raw_speech)
-    if playlist_num:
-        print(f"🎯 [Каскад 2]: Выделен жесткий номер плейлиста: {playlist_num}")
-        show_notification(f"Загружаю плейлист №{playlist_num} 🎶", icon="media-playlist-normal")
-        requests.post(f"{API_MPC_URL}?load={playlist_num}")
-        sys.exit(0)
-
-    # РУБЕЖ 3: 🌟 ИСПРАВЛЕНО: Работаем через переименованный tracks_checker
-    direct_target = check_direct_track_target(raw_speech)
-    if direct_target:
-        load_num = direct_target["load"]
-        track_num = direct_target["track"]
+    routing = process_cascade_routing(raw_speech)
+    
+    if routing:
+        # УСПЕХ: Локальные модули (команды, плейлисты или галлюцинации) нашли цель!
+        action = routing["action"]
         
-        # Строим гибкий URL: если track_num равен None (альбом целиком) — не шлем его в REST
-        url = f"{API_MPC_URL}?load={load_num}"
-        if track_num is not None:
-            url += f"&track={track_num}"
+        if action == "system_cmd":
+            target_cmd = routing["target"]
+            print(f"🎯 [Десктоп Каскад]: Найдена команда плеера: '{target_cmd}'")
+            show_notification(f"Выполняю команду: {target_cmd.upper()} 🛠️", icon="media-playback-start")
+            requests.post(f"{API_MPC_URL}?cmd={target_cmd}")
+            sys.exit(0)
             
-        print(f"🎯 [Каскад 3]: Найдена цель в СУБД. Запуск: {url}")
-        show_notification(f"Включаю целевой трек плейлиста {load_num} 🎶", icon="media-playlist-normal")
-        requests.post(url)
-        sys.exit(0)
+        elif action == "load_playlist":
+            load_num = routing["playlist"]
+            track_num = routing["track"]
+            
+            # Строим точечный REST-URL (сохраняя логику NULL для альбома целиком)
+            url = f"{API_MPC_URL}?load={load_num}"
+            if track_num is not None:
+                url += f"&track={track_num}"
+                
+            print(f"🎯 [Десктоп Каскад]: Найдена точная реляционная цель. Запуск: {url}")
+            show_notification(f"Включаю целевой трек плейлиста {load_num} 🎶", icon="media-playlist-normal")
+            requests.post(url)
+            sys.exit(0)
 
     # =====================================================================
-    # РУБЕЖ 4: ЕСЛИ СТАРШАЯ ШКОЛА БЕССИЛЬНА — ТЕКСТ ЛЕТИТ НА СЕРВЕР ДЛЯ E5
+    # 🌌 ЗАПАСНОЙ ХОД: СТАРАЯ ШКОЛА БЕССИЛЬНА -> ВЕКТОРНЫЙ ТЕКСТ НА CUBI ДЛЯ E5
     # =====================================================================
-    print("🌌 [Каскад исчерпан]: Отправка чистого текста на Cubi для ИИ-анализа...")
+    print("🌌 [Каскад десктопа исчерпан]: Отправка легкого текста на Cubi для ИИ-анализа...")
     show_notification("Поиск семантических ИИ-ассоциаций...", icon="applications-science")
     
     try:
@@ -129,3 +104,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
