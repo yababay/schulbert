@@ -204,3 +204,12 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
             "name": row[1]
         })
     return {"mode": "playlists_index", "total": len(playlists_list), "playlists": playlists_list}
+
+if __name__ == "__main__":
+    # Быстрый встроенный тест работоспособности
+    assert check_system_command("пауза") == "pause"
+    assert check_system_command("играй") == "play"
+    assert check_system_command("дальше") == "next"
+    assert check_system_command("тишина") == "stop"
+    print("✅ Модуль command_checker.py успешно прошел внутреннюю валидацию!")
+
