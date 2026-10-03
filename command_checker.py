@@ -150,7 +150,7 @@ def process_rest_remote_action(action: str, volume: str, load: str, track: int) 
     return {"status": "success", "mode": "rest_remote", "executed": executed_commands}
 
 def get_media_catalog_data(playlist_id: int = None) -> dict:
-    """🌟 ПОЛНАЯ ЭМУЛЯЦИЯ РЕЖИМОВ А и Б ДЛЯ ЭНДПОИНТА /catalog"""
+    """🌟 СОХРАНЕНИЕ СТАРЫХ СОСТОЯНИЙ: Режимы А и Б для эндпоинта /catalog"""
     try:
         conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
         cur = conn.cursor()
@@ -171,6 +171,7 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
         
         tracks_list = []
         for row in rows:
+            # 🌟 ИСПРАВЛЕНО: Четко возвращаем элементы кортежа по индексам
             tracks_list.append({
                 "track_number": row[0],
                 "title": row[1],
@@ -192,6 +193,7 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
 
     playlists_list = []
     for row in rows:
+        # 🌟 ИСПРАВЛЕНО: Четко возвращаем элементы кортежа по индексам
         playlists_list.append({
             "playlist_id": row[0],
             "name": row[1]
