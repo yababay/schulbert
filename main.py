@@ -5,7 +5,7 @@ import json
 import subprocess
 import psycopg2
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from pydantic import BaseModel
 
 # Импортируем наш сквозной конвейер
