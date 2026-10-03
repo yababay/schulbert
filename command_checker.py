@@ -4,9 +4,14 @@ import sys
 import re
 import subprocess
 import psycopg2
+from pathlib import Path
 from yargy import Parser, rule, or_
 from yargy.pipelines import morph_pipeline
 from yargy.interpretation import fact
+
+BASE_DIR = Path(__file__).resolve().parent
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 # Параметры СУБД (Канонично черпаются из .env)
 DB_NAME = os.getenv('PG_DATABASE', 'player')
