@@ -22,13 +22,13 @@
 	<p class="card-text mb-0 text-muted style-status-text">
 		{#if isPlaying}
 			<i class="bi bi-disc-fill text-primary animate-spin me-1"></i> 
-			<span class="fw-semibold text-secondary">Сейчас играет:</span> {cleanTrackTitle}
+			<!-- span class="fw-semibold text-secondary">Сейчас играет:</span -->&nbsp;{cleanTrackTitle}
 		{:else if isPaused}
 			<i class="bi bi-disc text-secondary me-1"></i> 
-			<span class="fw-semibold text-secondary">Пауза:</span> {cleanTrackTitle}
+			<!-- span class="fw-semibold text-secondary">Пауза:</span -->&nbsp;{cleanTrackTitle}
 		{:else}
 			<i class="bi bi-music-note text-muted me-1"></i> 
-			<span class="text-secondary fw-medium">Музыкальный ассистент «Шульберта»</span>
+			<span class="text-secondary fw-medium">Музыкальный ассистент «Шульберт»</span>
 		{/if}
 	</p>
 </div>

@@ -4,6 +4,7 @@
 	import genresData from '\$lib/assets/genres.json';
 	import Brand from '\$lib/components/Brand.svelte';
 	import PlayerRemote from '\$lib/components/PlayerRemote.svelte';
+    import { writable } from 'svelte/store';
 
 	onMount(() => {
 		actions.fetchPlaylists();
@@ -13,15 +14,21 @@
 		return () => clearInterval(interval);
 	});
 
-	let filteredPlaylists = $derived(
-		pageState.playlists.filter(pl => {
-			const inGenre = pl.playlist_id >= pageState.selectedGenre.min && pl.playlist_id <= pageState.selectedGenre.max;
-			const matchSearch = pageState.searchQuery.trim() === '' || 
-				pl.name.toLowerCase().includes(pageState.searchQuery.toLowerCase()) ||
-				pl.playlist_id.toString().includes(pageState.searchQuery);
-			return inGenre && matchSearch;
-		})
-	);
+	const filteredPlaylist = writable<Array<{ playlist_id: number; name: string }>>([]);
+
+	const byQuery = (query: string) => {
+		const trimmedQuery = query.trim().toLowerCase();
+		filteredPlaylist.set(pageState.playlists.filter(pl => 
+				pl.name.toLowerCase().includes(trimmedQuery) ||
+				pl.playlist_id.toString().includes(trimmedQuery)
+		));
+	};
+
+	const byGenre = (index: number) => {
+		if(index < 0 || index >= genresData.length) return;
+		const choosen = genresData[index];
+		filteredPlaylist.set(pageState.playlists.filter(pl => pl.playlist_id >= choosen.min && pl.playlist_id <= choosen.max));
+	};
 </script>
 
 <div class="container-fluid bg-light text-dark min-vh-100 p-3 p-md-4">
@@ -46,10 +53,19 @@
 				</div>
 				<div class="card-body p-3">
 					<div class="mb-3">
-						<label for="genreSelect" class="form-label small text-secondary fw-bold">Жанровый фильтр</label>
-						<select id="genreSelect" class="form-select bg-white text-dark border py-2" bind:value={pageState.selectedGenre}>
-							{#each genresData as genre}
-								<option value={genre}>{genre.title}</option>
+						<!-- label for="genreSelect" class="form-label small text-secondary fw-bold">Жанровый фильтр</label -->
+						<select
+							id="genreSelect"
+							class="form-select bg-white text-dark border py-2"
+							onchange={(e) => {
+								console.log('Selected genre:', e.currentTarget.value);
+								const target = e.currentTarget as HTMLSelectElement;
+								byGenre(+target.value);
+							}}
+						>
+							<option value={-1} selected disabled>Жанровый фильтр</option>
+							{#each genresData as genre, index}
+								<option value={index}>{genre.title}</option>
 							{/each}
 						</select>
 					</div>
@@ -63,16 +79,19 @@
 								type="text" 
 								class="form-control bg-white text-dark border-start-0 py-2" 
 								placeholder="Номер или имя..." 
-								bind:value={pageState.searchQuery}
+								oninput={(e) => {
+									const target = e.currentTarget as HTMLInputElement;
+									byQuery(target.value);
+								}}
 							/>
 						</div>
 					</div>
 
 					<div class="list-group list-group-flush border rounded bg-white overflow-auto style-scroll" style="max-height: 52vh;">
-						{#if filteredPlaylists.length === 0}
+						{#if $filteredPlaylist.length === 0}
 							<div class="list-group-item bg-white text-muted text-center py-4">Ничего не найдено</div>
 						{/if}
-						{#each filteredPlaylists as pl}
+						{#each $filteredPlaylist as pl}
 							<button 
 								type="button" 
 								class="list-group-item list-group-item-action bg-white text-dark py-3 text-start d-flex justify-content-between align-items-center"
@@ -95,7 +114,7 @@
 			<div class="card-header bg-light border-bottom py-3 d-flex justify-content-between align-items-center">
 				<h6 class="mb-0 text-dark fw-bold d-flex align-items-center gap-2">
 					<i class="bi bi-music-player text-primary"></i> 
-					{pageState.selectedPlaylistId ? `Содержимое: ${pageState.selectedPlaylistName}` : 'Выберите плейлист в левой панели'}
+					{pageState.selectedPlaylistId ? `Альбом: ${pageState.selectedPlaylistName}` : 'Выберите плейлист в левой панели'}
 				</h6>
 				{#if pageState.selectedPlaylistId}
 					<!-- 🌟 ОБНОВЛЕННЫЙ ТЕКСТ КНОПКИ ЗАПУСКА ПЛЕЙЛИСТА -->

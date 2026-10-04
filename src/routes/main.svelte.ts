@@ -10,6 +10,7 @@ export const pageState = $state({
     // Поля фильтрации
     selectedGenre: { title: "Все жанры", min: 0, max: 99999 },
     searchQuery: '',
+    filteredPlaylist: [] as Array<{ playlist_id: number; name: string }>,
     
     // Сейчас играет (информация с Cubi)
     nowPlaying: 'Воспроизведение остановлено или очередь пуста.',
