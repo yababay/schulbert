@@ -60,19 +60,27 @@ def execute_mpc(command: str):
 
 def find_full_playlist_name(prefix: str) -> str:
     """Ищет реальное имя файла плейлиста в СУБД по его числовому префиксу"""
-    full_name = None
-    try:
-        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM playlists WHERE playlist_number = %s LIMIT 1;", (int(prefix),))
-        row = cur.fetchone()
-        if row:
-            full_name = row[0]
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"⚠️ Ошибка поиска префикса плейлиста в СУБД: {e}", file=sys.stderr)
-    return full_name
+    #full_name = None
+    res_lspl = subprocess.run("mpc lsplaylists", shell=True, capture_output=True, text=True)
+    lspl = res_lspl.stdout
+    pref_dash = f'{prefix}-'
+    if pref_dash in lspl:
+        for line in lspl.split():
+            if line.startswith(pref_dash):
+                return line.strip()
+
+    #try:
+    #    conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
+    #    cur = conn.cursor()
+    #    cur.execute("SELECT playlist_title FROM playlists WHERE playlist_number = %s LIMIT 1;", (int(prefix),))
+    #    row = cur.fetchone()
+    #    if row:
+    #        full_name = row[0]
+    #    cur.close()
+    #    conn.close()
+    #except Exception as e:
+    #    print(f"⚠️ Ошибка поиска префикса плейлиста в СУБД: {e}", file=sys.stderr)
+    return None
 
 def get_mpc_status() -> dict:
     """🌟 СОХРАНЕНИЕ СТАРЫХ СОСТОЯНИЙ: Сборка статуса плеера для Svelte"""
