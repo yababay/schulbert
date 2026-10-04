@@ -1,5 +1,6 @@
 DOWNLOAD_DIR="$HOME/Загрузки"
 DB_DUMP_FN="music-ai-search.sql"
+FLASH_LABEL=MUSIC
 
 check_m3u_name () {
     echo "$1" | egrep -q '\.m3u$' && echo "ok"
@@ -7,6 +8,30 @@ check_m3u_name () {
 
 check_mp3_name () {
     echo "$1" | egrep -q '\.mp3$' && echo "ok"
+}
+
+flash () {
+
+	if [ -n "$2" ]; then
+		FLASH_LABEL="$2"
+	fi
+
+	PORTABLE="/media/mabel/$FLASH_LABEL"
+	PLAYLIST="$1"
+
+	if [ ! -d "$PORTABLE" ]; then
+		echo 'Не забудьте установить метку'
+		echo 'на флешку командой'
+		echo 'sudo mlabel -i /dev/sda1 ::MUSIC'
+		exit 1
+	elif [ ! -f "$PLAYLIST" ]; then 
+		echo 'Не указан список треков'
+		exit 2
+	else
+		rsync -avz --no-perms --no-owner --no-group --modify-window=1 --delete --timeout=30 --partial --exclude='.*' --files-from="$PLAYLIST" . $PORTABLE
+		cp "$PLAYLIST" "$PORTABLE"
+	fi
+
 }
 
 update_artist () {
@@ -240,6 +265,8 @@ alias psql='psql -h schulbert -d player -U player'
 alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;' > ~/.3f-lab/_projects/schulbert/.unit_test_pieces.py"
 alias commit=' git add . && git commit -a && git push origin playlists'
 
+alias sch_restart='ssh schulbert systemctl --user restart music-ai-search.service'
+alias sch_status='ssh schulbert systemctl --user status music-ai-search.service'
 alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
 alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
 alias refresh-embeddings='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/refresh-embeddings.py'
