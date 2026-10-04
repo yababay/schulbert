@@ -68,18 +68,6 @@ def find_full_playlist_name(prefix: str) -> str:
         for line in lspl.split():
             if line.startswith(pref_dash):
                 return line.strip()
-
-    #try:
-    #    conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
-    #    cur = conn.cursor()
-    #    cur.execute("SELECT playlist_title FROM playlists WHERE playlist_number = %s LIMIT 1;", (int(prefix),))
-    #    row = cur.fetchone()
-    #    if row:
-    #        full_name = row[0]
-    #    cur.close()
-    #    conn.close()
-    #except Exception as e:
-    #    print(f"⚠️ Ошибка поиска префикса плейлиста в СУБД: {e}", file=sys.stderr)
     return None
 
 def get_mpc_status() -> dict:
@@ -173,7 +161,7 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
     # РЕЖИМ А: Запрос треков конкретного плейлиста (Правая панель Svelte)
     if playlist_id is not None:
         cur.execute("""
-            SELECT track_number, title, artist, album 
+            SELECT track_number, title, artist, album, composer 
             FROM tracks 
             WHERE playlist_number = %s 
             ORDER BY track_number ASC;
@@ -195,7 +183,7 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
 
     # РЕЖИМ Б: Запрос списка всех плейлистов (Левая панель Svelte)
     cur.execute("""
-        SELECT DISTINCT playlist_number, COALESCE(album, 'Плейлист ' || playlist_number) 
+        SELECT DISTINCT playlist_number, COALESCE(album, 'Плейлист ' || playlist_number) || ' ' || coalesce(artist, '') || ' ' || coalesce(composer, '')
         FROM tracks 
         WHERE playlist_number >= 1000 
         ORDER BY playlist_number ASC;
