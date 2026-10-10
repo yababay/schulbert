@@ -1,0 +1,31 @@
+DB_DUMP_FN="music-ai-search.sql"
+
+alias jbl_clip='bluetoothctl connect 30:C0:1B:93:7E:29'
+alias jbl_speaker='bluetoothctl connect 5C:FB:7C:E0:FC:56'
+alias lsm3u='ls -1 *.m3u'
+alias lsyml='ls -1 *.yaml'
+alias lsclassic="lsm3u | egrep '^1'"
+alias lsrock="lsm3u    | egrep '^2'"
+alias lsjazz="lsm3u    | egrep '^3'"
+alias lsbluez="lsm3u   | egrep '^4'"
+alias lspop="lsm3u     | egrep '^5'"
+alias lsethnic="lsm3u  | egrep '^6'"
+alias sync_classic='for f in 1*.m3u; do sync_music_files $f ; done'
+alias sync_rock='for    f in 2*.m3u; do sync_music_files $f ; done'
+alias sync_jazz='for    f in 3*.m3u; do sync_music_files $f ; done'
+alias sync_bluez='for   f in 4*.m3u; do sync_music_files $f ; done'
+alias sync_pop='for     f in 5*.m3u; do sync_music_files $f ; done'
+alias sync_ethnic='for  f in 6*.m3u; do sync_music_files $f ; done'
+alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "$DB_DUMP_FN" player && yc storage s3 mv "$DB_DUMP_FN" s3://playlists-dispatcher/playlists/'
+alias psql='psql -h schulbert -d player -U player'
+alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;' > ~/.3f-lab/_projects/schulbert/.unit_test_pieces.py"
+alias commit=' git add . && git commit -a && git push origin playlists'
+alias sch_restart='ssh schulbert systemctl --user restart music-ai-search.service'
+alias sch_status='ssh schulbert systemctl --user status music-ai-search.service'
+alias m3u2yaml='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2yaml.py'
+alias m3u2db='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/m3u2db.py'
+alias refresh-embeddings='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/refresh-embeddings.py'
+alias audit='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/audit.py'
+alias db2tags='/usr/share/schulbert/rag-pipeline/.venv/bin/python3 /usr/share/schulbert/rag-pipeline/db2tags.py'
+alias mp3detox='chmod +w -R . && all2mp3 . && detox . --apply'
+
