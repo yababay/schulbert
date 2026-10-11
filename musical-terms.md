@@ -24,6 +24,9 @@
 Джордж Гершвин (George Gershwin)
 Морис Равель (Maurice Ravel)
 Георг Филипп Телеман (Georg Philipp Telemann)
+Джузеппе Верди (Giuseppe Verdi)
+Джакомо Пуччини (Giacomo Puccini)
+Винченцо Беллини (Vincenzo Bellini)
 
 ### Отечественные авторы (русская традиция)
 Александр Бородин
