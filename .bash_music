@@ -6,6 +6,58 @@ if [ -f ".bash_aliases" ]; then
 	. .bash_aliases
 fi
 
+without_backup () {
+	lsm3u | while read l; do
+		OK="`find $BACKUP_DIR -name $l.tar`"
+		if [ -z "$OK" ]; then
+			echo $l
+		fi
+	done
+}
+
+find_composer () {
+	cat mus* | grep $1
+}
+
+burn () {
+	if [ ! -f "$1" ]; then
+		echo ❌ Укажите путь к iso-файлу.
+		exit 1
+	fi
+
+	growisofs -dvd-compat -Z /dev/sr0=$1
+}
+
+dir2iso () {
+	if [ -z "$1" ]; then
+		echo ❌ Укажите метку тома.
+		exit 1
+	fi
+
+	ID_ISO="../$1.iso"
+
+	mkisofs -o $ID_ISO -J -R -V "$1" .
+
+	echo
+	echo 💿 Теперь можно записать диск: burn $ID_ISO
+	echo
+}
+
+next_pop () {
+	LAST_POSITION="`lspop | egrep -o '^[0-9]+' | tail -n 1`"
+	echo $((LAST_POSITION + 1))
+}
+
+next_rock () {
+	LAST_POSITION="`lsrock | egrep -o '^[0-9]+' | tail -n 1`"
+	echo $((LAST_POSITION + 1))
+}
+
+next_classic () {
+	LAST_POSITION="`lsclassic | egrep -o '^[0-9]+' | tail -n 1`"
+	echo $((LAST_POSITION + 1))
+}
+
 wv () {
 	chmod +w . -R
 	CUE_FILE="`ls -1 *.cue | head -n 1`"
@@ -28,6 +80,9 @@ check_mp3_name () {
 m3u2tar () {
     [[ -z "$(check_m3u_name "$1")" ]] && { echo "❌ Входной m3u-файл не указан."; return 1; }
     BACKUP_FILE="$BACKUP_DIR/$1.tar" 
+    if [ -f "$BACKUP_FILE" ]; then
+	echo "❌ Архив уже существует."; return 1
+    fi
     tar cvf "$BACKUP_FILE" --remove-files -T $1
     tar uvf "$BACKUP_FILE" $1
 }
@@ -159,6 +214,7 @@ local_processing () {
     fix_garbled_tags "$1"
     sync_music_files "$1"
     m3u2db "$1"
+    m3u2tar "$1"
         
     # echo "========================================================="
     # echo "✅ Локальная обработка плейлиста $1 завершена."

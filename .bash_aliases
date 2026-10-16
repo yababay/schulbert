@@ -3,6 +3,7 @@ DB_DUMP_FN="music-ai-search.sql"
 alias jbl_clip='bluetoothctl connect 30:C0:1B:93:7E:29'
 alias jbl_speaker='bluetoothctl connect 5C:FB:7C:E0:FC:56'
 alias lsm3u='ls -1 *.m3u'
+alias lstar='ls -1 *.m3u.tar | sed "s/.m3u.tar//"'
 alias lsyml='ls -1 *.yaml'
 alias lsclassic="lsm3u | egrep '^1'"
 alias lsrock="lsm3u    | egrep '^2'"
