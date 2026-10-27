@@ -6,11 +6,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Импортируем готовый канонический функционал обратной совместимости
-from command_checker import (
-    process_rest_remote_action,
-    get_media_catalog_data
-)
+# Импортируем обновленный, совместимый со Svelte функционал
+from command_checker import process_rest_remote_action, get_media_catalog_data
 from audio_conveyor import record_voice_to_text, process_cascade_routing
 from track_checker import extract_meaningful_part
 
@@ -18,9 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=BASE_DIR / '.env')
 
-E5_MODEL_PATH = str(BASE_DIR / "models" / "multilingual-e5-large")
-
-# 🌟 СОХРАНЯЕМ СТАРЫЙ КОРНЕВОЙ ПУТЬ ДЛЯ БЕСШОВНОЙ РАБОТЫ SVELTE
+# Настраиваем root_path='/api' для полной бесшовной интеграции со старым Svelte-фронтендом
 app = FastAPI(title="Schulbert Media Server Core", root_path='/api')
 
 app.add_middleware(
@@ -31,60 +26,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = None
-if os.path.exists(E5_MODEL_PATH) and any(Path(E5_MODEL_PATH).iterdir()):
-    try:
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(E5_MODEL_PATH)
-    except ImportError:
-        pass
-
 class TextQuery(BaseModel):
     query: str
 
 def run_fallback_semantic_e5(raw_text: str):
-    if model is None:
-        return {"status": "ignored", "reason": "ИИ-модель отключена"}
-    meaningful_text = extract_meaningful_part(raw_text)
-    try:
-        query_vector = model.encode(f"query: {meaningful_text}").tolist()
-        import psycopg2
-        DB_NAME = os.getenv('PG_DATABASE', 'player')
-        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=os.getenv('PG_USER', 'player'), password=os.getenv('PG_PASSWORD'))
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT playlist_number, track_number FROM tracks 
-            WHERE embedding IS NOT NULL AND playlist_number >= 1000
-            ORDER BY embedding <=> %s::vector LIMIT 1;
-        """, (json.dumps(query_vector),))
-        ai_track = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if ai_track:
-            from command_checker import execute_mpc_action
-            execute_mpc_action(ai_track[0], ai_track[1])
-            return {"status": "success", "mode": "semantic_e5"}
-    except Exception:
-        pass
-    return {"status": "ignored"}
+    """Резервный ход: векторная база отключена до расширения физической памяти"""
+    return {"status": "ignored", "reason": "Семантическое ИИ-ядро отключено до апгрейда ОЗУ"}
 
-# =====================================================================
-# ЗЕРКАЛЬНЫЕ И СОВМЕСТИМЫЕ РУЧКИ ДЛЯ ФРОНТЕНДА SVELTE И ГОЛОСА
-# =====================================================================
+# --- МАРШРУТЫ ДЛЯ ГОЛОСОВОГО КОНВЕЙЕРА (ДЕСКТОП И МИКРОФОН) ---
 
 @app.post("/text-search")
 async def text_search(data: TextQuery):
     raw_text = data.query.strip()
+    print(f"📥 [Сервер /text-search]: Буквы с десктопа: \"{raw_text}\"")
+    
     routing = process_cascade_routing(raw_text)
     if routing:
-        from command_checker import execute_system_mpc_cmd, execute_mpc_action
+        from command_checker import execute_mpc
         if routing["action"] == "system_cmd":
-            execute_system_mpc_cmd(routing["target"])
+            valid_cmds = {"play": "mpc play", "pause": "mpc pause", "next": "mpc next", "stop": "mpc stop"}
+            execute_mpc(valid_cmds[routing["target"]])
             return {"status": "success", "mode": "syntax", "command": routing["target"]}
         elif routing["action"] == "load_playlist":
-            execute_mpc_action(routing["playlist"], routing["track"])
-            return {"status": "success", "mode": "syntax_yargy", "playlist": f"Плейлист {routing['playlist']}"}
+            p_num = routing["playlist"]
+            t_num = routing["track"]
+            if t_num:
+                execute_mpc(f"mpc clear && mpc load \"{p_num}\" && mpc play {t_num}")
+            else:
+                execute_mpc(f"mpc clear && mpc load \"{p_num}\" && mpc play")
+            return {"status": "success", "mode": "syntax_yargy", "playlist": f"Плейлист {p_num}"}
+            
     return run_fallback_semantic_e5(raw_text)
 
 @app.post("/voice-search")
@@ -92,22 +63,33 @@ async def voice_search(file: UploadFile = File(...)):
     temp_wav = Path(f"/tmp/{file.filename}")
     with open(temp_wav, "wb") as buffer:
         buffer.write(await file.read())
+        
     raw_text = record_voice_to_text(str(temp_wav))
     if temp_wav.exists(): os.remove(temp_wav)
     if not raw_text: return {"status": "ignored"}
     
+    print(f"📋 [Серверный Vosk расшифровал]: \"{raw_text}\"")
+    
     routing = process_cascade_routing(raw_text)
     if routing:
-        from command_checker import execute_system_mpc_cmd, execute_mpc_action
+        from command_checker import execute_mpc
         if routing["action"] == "system_cmd":
-            execute_system_mpc_cmd(routing["target"])
+            valid_cmds = {"play": "mpc play", "pause": "mpc pause", "next": "mpc next", "stop": "mpc stop"}
+            execute_mpc(valid_cmds[routing["target"]])
             return {"status": "success", "mode": "syntax", "command": routing["target"]}
         elif routing["action"] == "load_playlist":
-            execute_mpc_action(routing["playlist"], routing["track"])
-            return {"status": "success", "mode": "syntax_yargy", "playlist": f"Плейлист {routing['playlist']}"}
+            p_num = routing["playlist"]
+            t_num = routing["track"]
+            if t_num:
+                execute_mpc(f"mpc clear && mpc load \"{p_num}\" && mpc play {t_num}")
+            else:
+                execute_mpc(f"mpc clear && mpc load \"{p_num}\" && mpc play")
+            return {"status": "success", "mode": "syntax_yargy", "playlist": f"Плейлист {p_num}"}
+            
     return run_fallback_semantic_e5(raw_text)
 
-# 🌟 ЭТАЛОННЫЙ РЕСТ-ШЛЮЗ К MPC (ПОЛНАЯ УНИФИКАЦИЯ С СТАРЫМ ФРОНТЕНДОМ)
+# --- УНИФИЦИРОВАННЫЙ REST-ШЛЮЗ ДЛЯ КЛИЕНТА SVELTE ---
+
 @app.post("/mpc")
 @app.get("/mpc")
 async def mpc_network_remote(
@@ -121,14 +103,13 @@ async def mpc_network_remote(
         raise HTTPException(status_code=400, detail=res.get("message"))
     return res
 
-# 🌟 ЭТАЛОННЫЙ КАТАЛОГ (ЛЕВАЯ И ПРАВАЯ ПАНЕЛЬ ДЛЯ SVELTE В ОДИН КЛИК)
 @app.get("/catalog")
 async def get_media_catalog(id: int = Query(None, description="ID плейлиста для получения его треков")):
     res = get_media_catalog_data(id)
     if res.get("status") == "error":
         raise HTTPException(status_code=500, detail=res.get("message"))
     return res
-
+    
 # Классический старт uvicorn
 if __name__ == "__main__":
     import uvicorn
