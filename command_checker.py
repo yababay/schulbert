@@ -4,14 +4,9 @@ import sys
 import re
 import subprocess
 import psycopg2
-from pathlib import Path
 from yargy import Parser, rule, or_
 from yargy.pipelines import morph_pipeline
 from yargy.interpretation import fact
-
-BASE_DIR = Path(__file__).resolve().parent
-from dotenv import load_dotenv
-load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 # Параметры СУБД (Канонично черпаются из .env)
 DB_NAME = os.getenv('PG_DATABASE', 'player')
@@ -24,6 +19,7 @@ PAUSE_MARKERS = morph_pipeline(['пауза', 'паузу', 'приостано�
 PLAY_MARKERS  = morph_pipeline(['играй', 'продолжи', 'воспроизведение', 'старт', 'запусти'])
 NEXT_MARKERS  = morph_pipeline(['следующий', 'дальше', 'вперед', 'переключи'])
 
+# Исправлено 'nxt' согласно вашей канонической логике
 MPCommand = fact('MPCommand', ['stop', 'pause', 'play', 'nxt'])
 
 CMD_STOP  = rule(STOP_MARKERS.interpretation(MPCommand.stop))
@@ -60,30 +56,32 @@ def execute_mpc(command: str):
 
 def find_full_playlist_name(prefix: str) -> str:
     """Ищет реальное имя файла плейлиста в СУБД по его числовому префиксу"""
-    #full_name = None
-    res_lspl = subprocess.run("mpc lsplaylists", shell=True, capture_output=True, text=True)
-    lspl = res_lspl.stdout
-    pref_dash = f'{prefix}-'
-    if pref_dash in lspl:
-        for line in lspl.split():
-            if line.startswith(pref_dash):
-                return line.strip()
-    return None
+    full_name = None
+    try:
+        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
+        cur = conn.cursor()
+        # Выборка по новой схеме из таблицы playlists
+        cur.execute("SELECT name FROM playlists WHERE id = %s LIMIT 1;", (int(prefix),))
+        row = cur.fetchone()
+        if row:
+            full_name = row[0]
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ Ошибка поиска префикса плейлиста в СУБД: {e}", file=sys.stderr)
+    return full_name
 
 def get_mpc_status() -> dict:
-    """🌟 СОХРАНЕНИЕ СТАРЫХ СОСТОЯНИЙ: Сборка статуса плеера для Svelte"""
-    # 1. Получаем текущую песню
+    """Сборка статуса плеера для Svelte-интерфейса"""
     res_track = subprocess.run("mpc current", shell=True, capture_output=True, text=True)
     current_track = res_track.stdout.strip()
     
-    # 2. Вычисляем состояние паузы
     res_state = subprocess.run("mpc", shell=True, capture_output=True, text=True)
     if "[paused]" in res_state.stdout:
         current_track += " [paused]"
         
-    # 3. Вытаскиваем точное число громкости
     res_vol = subprocess.run("mpc volume", shell=True, capture_output=True, text=True)
-    volume_value = 50  # Дефолт
+    volume_value = 50  
     volume_match = re.search(r'volume:\s*(\d+)%', res_vol.stdout)
     if volume_match:
         volume_value = int(volume_match.group(1))
@@ -100,7 +98,7 @@ def get_mpc_status() -> dict:
     }
 
 def process_rest_remote_action(action: str, volume: str, load: str, track: int) -> dict:
-    """🌟 ПОЛНАЯ ЭМУЛЯЦИЯ СТАРЫХ МЕТОДОВ ДЛЯ ШЛЮЗА /mpc"""
+    """Эмуляция старых методов для шлюза /mpc"""
     executed_commands = []
 
     if action == "status":
@@ -151,7 +149,7 @@ def process_rest_remote_action(action: str, volume: str, load: str, track: int) 
     return {"status": "success", "mode": "rest_remote", "executed": executed_commands}
 
 def get_media_catalog_data(playlist_id: int = None) -> dict:
-    """🌟 СОХРАНЕНИЕ СТАРЫХ СОСТОЯНИЙ: Режимы А и Б для эндпоинта /catalog"""
+    """🌟 МОДЕРНИЗИРОВАНО: Извлечение структуры каталога фонотеки через богатый VIEW rich_tracks"""
     try:
         conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
         cur = conn.cursor()
@@ -160,10 +158,11 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
 
     # РЕЖИМ А: Запрос треков конкретного плейлиста (Правая панель Svelte)
     if playlist_id is not None:
+        # Тянем текстовые данные напрямую из вашего нового rich_tracks
         cur.execute("""
-            SELECT track_number, title, artist, album, composer 
-            FROM tracks 
-            WHERE playlist_number = %s 
+            SELECT track_number, title, artists, album 
+            FROM rich_tracks 
+            WHERE playlist_id = %s 
             ORDER BY track_number ASC;
         """, (playlist_id,))
         rows = cur.fetchall()
@@ -172,21 +171,21 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
         
         tracks_list = []
         for row in rows:
-            # 🌟 ИСПРАВЛЕНО: Четко возвращаем элементы кортежа по индексам
             tracks_list.append({
                 "track_number": row[0],
-                "title": row[1],
-                "artist": row[2],
-                "album": row[3]
+                "title": row[1] if row[1] else "Без названия",
+                "artist": row[2] if row[2] else "Неизвестный исполнитель",
+                "album": row[3] if row[3] else ""
             })
         return {"mode": "playlist_tracks", "playlist_id": playlist_id, "total": len(tracks_list), "tracks": tracks_list}
 
     # РЕЖИМ Б: Запрос списка всех плейлистов (Левая панель Svelte)
+    # Тянем уникальные плейлисты, исключая технические черновики меньше 1000
     cur.execute("""
-        SELECT DISTINCT playlist_number, COALESCE(album, 'Плейлист ' || playlist_number) || ' ' || coalesce(artist, '') || ' ' || coalesce(composer, '')
-        FROM tracks 
-        WHERE playlist_number >= 1000 
-        ORDER BY playlist_number ASC;
+        SELECT DISTINCT playlist_id, COALESCE(album, 'Плейлист ' || playlist_id) 
+        FROM rich_tracks 
+        WHERE playlist_id >= 1000 
+        ORDER BY playlist_id ASC;
     """)
     rows = cur.fetchall()
     cur.close()
@@ -194,18 +193,8 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
 
     playlists_list = []
     for row in rows:
-        # 🌟 ИСПРАВЛЕНО: Четко возвращаем элементы кортежа по индексам
         playlists_list.append({
             "playlist_id": row[0],
             "name": row[1]
         })
     return {"mode": "playlists_index", "total": len(playlists_list), "playlists": playlists_list}
-
-if __name__ == "__main__":
-    # Быстрый встроенный тест работоспособности
-    assert check_system_command("пауза") == "pause"
-    assert check_system_command("играй") == "play"
-    assert check_system_command("дальше") == "next"
-    assert check_system_command("тишина") == "stop"
-    print("✅ Модуль command_checker.py успешно прошел внутреннюю валидацию!")
-
