@@ -2,6 +2,7 @@
 const API_BASE = '/api';
 
 export const pageState = $state({
+    rows: [] as Array<{ composers: string; album: string; title: string; artists: string; playlist_id: number; track_number: number }>,
     playlists: [] as Array<{ playlist_id: number; name: string }>,
     currentTracks: [] as Array<{ track_number: number; title: string; artist: string; album: string }>,
     selectedPlaylistId: null as number | null,

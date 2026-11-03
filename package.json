@@ -7,6 +7,7 @@
 		"bro": "BROWSER=firefox vite dev --open",
 		"dev": "vite dev",
 		"git": "git add . && git commit -am ok && git push origin frontend-2026-11-03",
+		"tracks": "psql -U schulbert -h schulbert -d schulbert -c 'copy (select composers, album, title, artists, playlist_id, track_number from rich_tracks order by playlist_id, track_number) to stdout with (format csv, header true, encoding utf8)' > src/lib/assets/tracks.csv",
 		"build": "vite build",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
@@ -14,6 +15,7 @@
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@types/papaparse": "^5.5.2",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",
@@ -21,6 +23,6 @@
 	},
 	"dependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
-		"csv-parser": "^3.2.1"
+		"papaparse": "^5.7.0"
 	}
 }
