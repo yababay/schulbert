@@ -6,7 +6,7 @@
 	"scripts": {
 		"bro": "BROWSER=firefox vite dev --open",
 		"dev": "vite dev",
-		"git": "git add . && git commit -am ok && git push origin frontend",
+		"git": "git add . && git commit -am ok && git push origin frontend-2026-11-03",
 		"build": "vite build",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
