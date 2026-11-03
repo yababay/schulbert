@@ -1,5 +1,5 @@
 <script lang="ts">
-	import favicon from '$lib/assets/ai-music.svg';
+	import favicon from '$lib/assets/favicon.svg';
 	import { PUBLIC_PAGE_TITLE } from '$env/static/public';
 
 	let { children } = $props();
@@ -20,7 +20,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		justify-content: space-between;
 		box-sizing: border-box;
 		min-height: 100vh; /* Позволяет контенту расти вниз при скролле */
 		padding: 20px 0;
