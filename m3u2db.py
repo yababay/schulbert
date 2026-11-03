@@ -17,10 +17,7 @@ DB_NAME = os.getenv('PG_DATABASE', 'player')
 DB_PASS = os.getenv('PG_PASSWORD', 'player_secure_pass')
 
 def get_or_create_person_id(cur, person_name):
-    """
-    Ищет музыканта в справочнике по имени. 
-    Если не находит — создает и возвращает новый сгенерированный ID.
-    """
+    """Ищет музыканта в справочнике. Создает, если нет, и возвращает ID."""
     if not person_name:
         return None
     name_clean = str(person_name).strip()
@@ -37,13 +34,45 @@ def get_or_create_person_id(cur, person_name):
     res = cur.fetchone()
     return res[0] if res else None
 
+def get_or_create_album_id(cur, album_name, release_year):
+    """
+    🌟 НОВАЯ ФУНКЦИЯ: Ищет альбом в таблице albums.
+    Если не находит — регистрирует и возвращает числовой id.
+    """
+    if not album_name:
+        return None
+    album_clean = str(album_name).strip()
+    if not album_clean:
+        return None
+
+    # Пытаемся вставить альбом. Если структура таблицы albums подразумевает 
+    # уникальный индекс по имени, ON CONFLICT предотвратит ошибку.
+    try:
+        cur.execute("""
+            INSERT INTO albums (name, release_year) 
+            VALUES (%s, %s) 
+            ON CONFLICT (name) DO NOTHING;
+        """, (album_clean, release_year))
+    except psycopg2.Error:
+        # Если в вашей таблице albums уникальный ключ завязан только на id, 
+        # то ON CONFLICT (name) может не сработать, подстрахуемся обычным SELECT ниже.
+        pass
+    
+    cur.execute("SELECT id FROM albums WHERE name = %s LIMIT 1;", (album_clean,))
+    res = cur.fetchone()
+    
+    # Если нашли альбом, но у него не был проставлен год, а сейчас он прилетел — обновим
+    if res and release_year:
+        cur.execute("UPDATE albums SET release_year = %s WHERE id = %s AND release_year IS NULL;", (release_year, res[0]))
+        
+    return res[0] if res else None
+
 def m3u_to_database(m3u_path):
     if not Path(m3u_path).exists():
         print(f"❌ Файл не найден: {m3u_path}")
         return
 
     m3u_name = Path(m3u_path).stem
-    # Исправлено разделение строки для надежного извлечения префикса
     playlist_number = int(m3u_name.split('-')[0]) if m3u_name.split('-')[0].isdigit() else 0
     
     if playlist_number == 0:
@@ -106,17 +135,20 @@ def m3u_to_database(m3u_path):
             if date_tag and str(date_tag).isdigit():
                 release_year = int(date_tag)
 
-            # 🌟 ШАГ 3: Вставка в tracks с поддержкой новой колонки 'title'
+            # 🌟 ШАГ 2.5: Получаем или создаем реляционный ID альбома
+            album_name = tags.get('album')
+            album_id = get_or_create_album_id(cur, album_name, release_year)
+
+            # 🌟 ШАГ 3: Вставка в tracks с поддержкой внешнего ключа album_id и без старого поля album
             cur.execute("""
-                INSERT INTO tracks (playlist_id, track_number, path, title, album, release_year, composer_ids, artist_ids)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+                INSERT INTO tracks (playlist_id, track_number, path, title, album_id, composer_ids, artist_ids)
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
             """, (
                 playlist_number,
                 track_counter,
                 line,
-                tags.get('title'),  # 🌟 Новая колонка улетает в базу данных
-                tags.get('album'),
-                release_year,
+                tags.get('title'),
+                album_id,  # 🌟 Вместо строки пишем числовой ID альбома
                 composer_ids if composer_ids else None,
                 artist_ids if artist_ids else None
             ))
@@ -126,7 +158,7 @@ def m3u_to_database(m3u_path):
         conn.commit()
         cur.close()
         conn.close()
-        print(f"✅ Успешно импортировано треков по новой схеме: {inserted_count}. Названия песен и ID привязаны.")
+        print(f"✅ Успешно импортировано треков по новой схеме: {inserted_count}. Альбомы, песни и ID синхронизированы.")
         
     except Exception as e:
         print(f"❌ Ошибка сетевого импорта в новую СУБД: {e}")
@@ -136,4 +168,3 @@ if __name__ == "__main__":
         print("Использование: python3 m3u2db.py <плейлист.m3u>")
         sys.exit(1)
     m3u_to_database(sys.argv[1])
-
