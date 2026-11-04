@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pageState } from '../../routes/main.svelte';
+	import { pageState } from '$lib/stores/player.svelte';
 
 	let isStopped = $derived(
 		pageState.nowPlaying.includes("Воспроизведение остановлено") || 
@@ -11,7 +11,7 @@
 	let isPlaying = $derived(!isStopped && !isPaused);
 	let cleanTrackTitle = $derived(pageState.nowPlaying.replace(" [paused]", ""));
 </script>
-<p class="card-text mb-0 text-muted style-status-text">
+<p class="card-text mb-0 text-muted style-status-text w-75 text-truncate d-flex align-items-center">
     {#if isPlaying}
         <i class="bi bi-disc-fill text-primary animate-spin me-1"></i> 
         <!-- span class="fw-semibold text-secondary">Сейчас играет:</span -->&nbsp;{cleanTrackTitle}

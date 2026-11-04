@@ -2,16 +2,6 @@
 const API_BASE = '/api';
 
 export const pageState = $state({
-    rows: [] as Array<{ composers: string; album: string; title: string; artists: string; playlist_id: number; track_number: number }>,
-    playlists: [] as Array<{ playlist_id: number; name: string }>,
-    currentTracks: [] as Array<{ track_number: number; title: string; artist: string; album: string }>,
-    selectedPlaylistId: null as number | null,
-    selectedPlaylistName: '' as string,
-    
-    // Поля фильтрации
-    selectedGenre: { title: "Все жанры", min: 0, max: 99999 },
-    searchQuery: '',
-    filteredPlaylist: [] as Array<{ playlist_id: number; name: string }>,
     
     // Сейчас играет (информация с Cubi)
     nowPlaying: 'Воспроизведение остановлено или очередь пуста.',
@@ -19,35 +9,8 @@ export const pageState = $state({
 });
 
 export const actions = {
-    // 1. Загрузка левой панели: Индекс всех плейлистов
-    async fetchPlaylists() {
-        try {
-            const res = await fetch(`${API_BASE}/catalog`);
-            if (res.ok) {
-                const data = await res.json();
-                pageState.playlists = data.playlists || [];
-            }
-        } catch (e) {
-            console.error("Ошибка загрузки плейлистов:", e);
-        }
-    },
 
-    // 2. Загрузка правой панели: Треки конкретного плейлиста
-    async fetchTracks(playlistId: number, playlistName: string) {
-        pageState.selectedPlaylistId = playlistId;
-        pageState.selectedPlaylistName = playlistName;
-        try {
-            const res = await fetch(`${API_BASE}/catalog?id=${playlistId}`);
-            if (res.ok) {
-                const data = await res.json();
-                pageState.currentTracks = data.tracks || [];
-            }
-        } catch (e) {
-            console.error("Ошибка загрузки треков:", e);
-        }
-    },
-
-    // 3. Отправка быстрых REST-команд управления в mpc
+    // Отправка быстрых REST-команд управления в mpc
     async sendMpcCommand(params: { action?: string; volume?: string; load?: number; track?: number }) {
         const url = new URL(`${window.location.origin}${API_BASE}/mpc`);
         if (params.action) url.searchParams.append('action', params.action);
