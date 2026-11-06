@@ -1,4 +1,4 @@
-DB_DUMP_FN="music-ai-search.sql"
+DB_DUMP_FN="schulbert-dump.sql"
 
 alias jbl_clip='bluetoothctl connect 30:C0:1B:93:7E:29'
 alias jbl_speaker='bluetoothctl connect 5C:FB:7C:E0:FC:56'
@@ -17,8 +17,9 @@ alias sync_jazz='for    f in 3*.m3u; do sync_music_files $f ; done'
 alias sync_bluez='for   f in 4*.m3u; do sync_music_files $f ; done'
 alias sync_pop='for     f in 5*.m3u; do sync_music_files $f ; done'
 alias sync_ethnic='for  f in 6*.m3u; do sync_music_files $f ; done'
-alias dump='pg_dump -h schulbert -U player -F p --clean -b -f "$DB_DUMP_FN" player && yc storage s3 mv "$DB_DUMP_FN" s3://playlists-dispatcher/playlists/'
-alias psql='psql -h schulbert -d player -U player'
+alias dump='pg_dump -h schulbert -U schulbert -F p --clean -b -f "$DB_DUMP_FN" schulbert'
+# alias psql='psql -h schulbert -d player -U player'
+alias pgsch='psql -U schulbert -h schulbert -d schulbert'
 alias generate_unit_tests="psql -At -c 'SELECT * FROM generate_unit_tests;' > ~/.3f-lab/_projects/schulbert/.unit_test_pieces.py"
 alias commit=' git add . && git commit -a && git push origin playlists'
 alias sch_restart='ssh schulbert systemctl --user restart music-ai-search.service'
