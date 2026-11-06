@@ -14,10 +14,10 @@
       <Player />
     </div>
     <div class="row g-2" id="status-volume-row">
-      <div class="col-12 col-md-6 d-flex align-items-center justify-content-start">
+      <div class="col-12 col-md-8 d-flex align-items-center justify-content-start">
         <Status />
       </div>
-      <div class="col-12 col-md-6 d-flex align-items-center justify-content-end">
+      <div class="col-12 col-md-4 d-flex align-items-center justify-content-end">
         <Volume />
       </div>
     </div> 
