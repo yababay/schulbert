@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { pageState, actions } from '$lib/stores/player.svelte';
+    import { pageState, sendMpcCommand } from '$lib/stores/player.svelte';
 </script>
 
 <!-- Bootstrap Range ползунок громкости -->
@@ -22,7 +22,7 @@
         max="100" 
         step="5" 
         bind:value={pageState.volume} 
-        onchange={(e) => actions.sendMpcCommand({ volume: (e.target as HTMLInputElement).value })}
+        onchange={(e) => sendMpcCommand({ action: 'volume', volume: (e.target as HTMLInputElement).value })}
         title={`Громкость: ${pageState.volume}%`}
     />
     <span class="small font-monospace text-secondary style-percent">{pageState.volume}%</span>

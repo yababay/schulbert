@@ -11,7 +11,7 @@
 	let isPlaying = $derived(!isStopped && !isPaused);
 	let cleanTrackTitle = $derived(pageState.nowPlaying.replace(" [paused]", ""));
 </script>
-<p class="card-text mb-0 text-muted style-status-text w-75 text-truncate d-flex align-items-center">
+<p class="card-text mb-0 text-muted style-status-text w-75 text-truncate d-flex align-items-center p-5">
     {#if isPlaying}
         <i class="bi bi-disc-fill text-primary animate-spin me-1"></i> 
         <!-- span class="fw-semibold text-secondary">Сейчас играет:</span -->&nbsp;{cleanTrackTitle}
@@ -28,6 +28,9 @@
 	.style-status-text {
 		font-size: 0.85rem;
 		min-height: 1.25rem;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
 	}
 	.select-none {
 		user-select: none;

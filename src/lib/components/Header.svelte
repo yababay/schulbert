@@ -6,7 +6,20 @@
     import Volume from './Volume.svelte';
 </script>
 
-<nav class="navbar bg-body-tertiary">
+<header class="header w-100 bg-body-tertiary">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between w-100">
+      <Brand />
+      <Search />
+      <Player />
+    </div>
+    <div class="d-flex align-items-center justify-content-between w-100">
+      <Status />
+      <Volume />
+    </div>
+  </div>
+</header>
+<!-- nav class="navbar bg-body-tertiary">
   <div class="container-fluid">
     <div class="d-flex align-items-center justify-content-between w-100">
         <Brand />
@@ -18,4 +31,4 @@
       <Volume />
     </div>
   </div>
-</nav>
+</nav -->

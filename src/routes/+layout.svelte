@@ -24,6 +24,7 @@
 		box-sizing: border-box;
 		min-height: 100vh; /* Позволяет контенту расти вниз при скролле */
 		padding: 20px 0;
+		width: 100%;
 	}
 </style>
 

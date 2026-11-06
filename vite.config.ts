@@ -3,6 +3,14 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	server: {
+		proxy: {	
+			'/api': {
+				target: 'http://schulbert/',
+				changeOrigin: true
+			}
+		}
+	},
 	plugins: [
 		sveltekit({
 			compilerOptions: {
