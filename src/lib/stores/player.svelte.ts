@@ -1,4 +1,5 @@
 import { PUBLIC_STANUS_UPDATE_INTERVAL, PUBLIC_NO_TRACKS_MESSAGE } from '$env/static/public';
+import { query } from './search.svelte';
 
 const statusUpdateInterval = parseInt(PUBLIC_STANUS_UPDATE_INTERVAL) || 5000;
 
@@ -59,5 +60,11 @@ const updateStatus = async () => {
             console.error("Ошибка обновления статуса:", e);
         }
 }
+
+export	const playTrack = async (playlist_id: number, track_number: number) => {
+    await sendMpcCommand({ action: 'load', load: playlist_id, track: track_number });
+    query.set(`${playlist_id}`);
+    localStorage.setItem('lastPlaylist', `${playlist_id}`);
+};
 
 setInterval(updateStatus, statusUpdateInterval);

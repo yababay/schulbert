@@ -3,7 +3,7 @@
 </script>
 
 <!-- Bootstrap Range ползунок громкости -->
-<div class="d-flex align-items-center gap-2 border rounded px-3 py-1.5 bg-light shadow-sm w-25"
+<div class="d-flex align-items-center gap-2 border rounded px-3 py-1 bg-light shadow-sm w-100"
      title={`Громкость: ${pageState.volume}%`}
 >
     {#if pageState.volume === 0}

@@ -8,14 +8,18 @@
 
 <header class="header w-100 bg-body-tertiary">
   <div class="container-fluid">
-    <div class="d-flex align-items-center justify-content-between w-100">
+    <div class="d-flex align-items-center justify-content-between w-100" id="brand-search-player-row">
       <Brand />
       <Search />
       <Player />
     </div>
-    <div class="d-flex align-items-center justify-content-between w-100">
-      <Status />
-      <Volume />
-    </div>
+    <div class="row g-2" id="status-volume-row">
+      <div class="col-12 col-md-6 d-flex align-items-center justify-content-start">
+        <Status />
+      </div>
+      <div class="col-12 col-md-6 d-flex align-items-center justify-content-end">
+        <Volume />
+      </div>
+    </div> 
   </div>
 </header>
