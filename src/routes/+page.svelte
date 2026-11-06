@@ -1,7 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
     import Header from '$lib/components/Header.svelte';
-	import { rows } from '$lib/stores/search.svelte';
+	import { rows, query } from '$lib/stores/search.svelte';
     import Row from '$lib/components/Row.svelte';
+
+	onMount(() => {
+		const lastPlaylist = localStorage.getItem('lastPlaylist');
+		$query = lastPlaylist || '';
+	});
 </script>
 
 <Header />

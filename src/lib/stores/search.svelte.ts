@@ -1,6 +1,7 @@
 import { derived, writable } from 'svelte/store';
 import _TRACKS from '$lib/assets/tracks.csv?raw';
 import Papa from 'papaparse';
+import { pageState } from '$lib/stores/player.svelte';
 
 export interface Track {
     composers: string;
@@ -9,6 +10,7 @@ export interface Track {
     artists: string;
     playlist_id: number;
     track_number: number;
+    is_current?: boolean
 }
 
 const TRACKS_ARRAY = _TRACKS.split('\n');
@@ -28,6 +30,8 @@ const filteredTracks = (track: string): Track[] => {
             trackObj = results.data as Track[];
         }
     });
+    const current = trackObj.find(({title}) => pageState.nowPlaying.includes(title));
+    if(current) current.is_current = true;
     return trackObj;
 };
 

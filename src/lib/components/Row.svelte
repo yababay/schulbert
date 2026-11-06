@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { sendMpcCommand } from '$lib/stores/player.svelte';
+	import { sendMpcCommand, pageState } from '$lib/stores/player.svelte';
 	import { query } from '$lib/stores/search.svelte';
 
     let {
@@ -8,8 +8,10 @@
         album,
         title,
         playlist_id,
-        track_number
+        track_number,
     } = $props();
+
+    const isCurrent = $derived(pageState.nowPlaying.includes(title));
 	
 	const handlePlayClick = async (event: MouseEvent) => {
 		const target = event.target as HTMLElement;
@@ -17,15 +19,16 @@
 				const load = parseInt(target.dataset.playlistId || '0');
 				const track = parseInt(target.dataset.trackNumber || '0');
 				if (load < 1000 || track < 1) return;
-                console.log('load:', load, 'track:', track);
-				query.set(`${load}`)
+                // console.log('load:', load, 'track:', track);
 				await sendMpcCommand({ action: 'load', load, track});
+				query.set(`${load}`)
+                localStorage.setItem('lastPlaylist', `${load}`);
 		}
 	}
 
 </script>
 
-<tr>
+<tr class:table-primary={isCurrent}>
     <td>{composers}</td>
     <td>{artists}</td>
     <td>{album}</td>
