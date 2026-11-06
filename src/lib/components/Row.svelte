@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { sendMpcCommand, pageState } from '$lib/stores/player.svelte';
-	import { query } from '$lib/stores/search.svelte';
+	import { query, hasComposers } from '$lib/stores/search.svelte';
 
     let {
         composers,
@@ -29,7 +29,7 @@
 </script>
 
 <tr class:table-primary={isCurrent}>
-    <td>{composers}</td>
+    <td class:d-none={!$hasComposers}>{composers}</td>
     <td>{artists}</td>
     <td>{album}</td>
     <td>{title}</td>

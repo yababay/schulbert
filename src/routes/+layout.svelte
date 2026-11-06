@@ -20,7 +20,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: start;
 		box-sizing: border-box;
 		min-height: 100vh; /* Позволяет контенту расти вниз при скролле */
 		padding: 20px 0;

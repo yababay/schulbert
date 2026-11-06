@@ -30,8 +30,8 @@ const filteredTracks = (track: string): Track[] => {
             trackObj = results.data as Track[];
         }
     });
-    const current = trackObj.find(({title}) => pageState.nowPlaying.includes(title));
-    if(current) current.is_current = true;
+    // const current = trackObj.find(({title}) => pageState.nowPlaying.includes(title));
+    // if(current) current.is_current = true;
     return trackObj;
 };
 
@@ -51,3 +51,5 @@ export const rows = derived(query, ($query: string) => {
     }
     return []
 });
+
+export const hasComposers = derived(rows, ($rows) => $rows.some(({ composers }) => composers && composers.trim()));

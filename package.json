@@ -8,8 +8,8 @@
 		"dev": "vite dev",
 		"git": "git add . && git commit -am ok && git push origin frontend-2026-11-03",
 		"tracks": "psql -U schulbert -h schulbert -d schulbert -c 'copy (select composers, album, title, artists, playlist_id, track_number from rich_tracks order by playlist_id, track_number) to stdout with (format csv, header true, encoding utf8)' > src/lib/assets/tracks.csv",
-		"build": "vite build",
-		"postbuild": "rsync -avz --delete --chmod=D775,F664 build/ schulbert:/www/data/schulbert/",
+		"build": "npm run tracks && vite build",
+		"postbuild": "rsync -avz --delete --chmod=D775,F664 build/ schulbert:/www/data/schulbert/ && npm run git",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"devDependencies": {

@@ -32,9 +32,6 @@
 		overflow: hidden;
 		white-space: nowrap;
 	}
-	.select-none {
-		user-select: none;
-	}
 	@keyframes spin {
 		from { transform: rotate(0deg); }
 		to { transform: rotate(360deg); }
