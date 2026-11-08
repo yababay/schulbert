@@ -148,10 +148,21 @@ def process_rest_remote_action(action: str, volume: str, load: str, track: int) 
 
     return {"status": "success", "mode": "rest_remote", "executed": executed_commands}
 
+def get_connection():
+    """Создает и возвращает подключение к СУБД PostgreSQL"""
+    try:
+        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
+        return conn
+    except Exception as e:
+        print(f"❌ Ошибка подключения к СУБД: {e}", file=sys.stderr)
+        return None
+
 def get_media_catalog_data(playlist_id: int = None) -> dict:
     """🌟 МОДЕРНИЗИРОВАНО: Извлечение структуры каталога фонотеки через богатый VIEW rich_tracks"""
     try:
-        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
+        conn = get_connection()
+        if not conn:
+            return {"status": "error", "message": "Не удалось подключиться к СУБД."}
         cur = conn.cursor()
     except Exception as e:
         return {"status": "error", "message": f"Ошибка подключения к СУБД: {e}"}
@@ -198,3 +209,28 @@ def get_media_catalog_data(playlist_id: int = None) -> dict:
             "name": row[1]
         })
     return {"mode": "playlists_index", "total": len(playlists_list), "playlists": playlists_list}
+
+def get_or_create_person_id(cur, person_name):
+    """Ищет музыканта в справочнике. Создает, если нет, и возвращает ID."""
+    if not person_name: return None
+    name_clean = str(person_name).strip()
+    if not name_clean: return None
+
+    cur.execute("INSERT INTO persons_and_collectives (name) VALUES (%s) ON CONFLICT (name) DO NOTHING;", (name_clean,))
+    cur.execute("SELECT id FROM persons_and_collectives WHERE name = %s;", (name_clean,))
+    res = cur.fetchone()
+    return res[0] if res else None
+
+def get_or_create_album_id(cur, album_name, release_year):
+    """Ищет альбом в таблице albums. Создает, если нет, и возвращает ID."""
+    if not album_name: return None
+    album_clean = str(album_name).strip()
+    if not album_clean: return None
+
+    try:
+        cur.execute("INSERT INTO albums (name, release_year) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING;", (album_clean, release_year))
+    except Exception:
+        pass
+    cur.execute("SELECT id FROM albums WHERE name = %s LIMIT 1;", (album_clean,))
+    res = cur.fetchone()
+    return res[0] if res else None

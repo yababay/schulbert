@@ -43,7 +43,7 @@ git_local:
 	git commit -a
 
 git_remote: 
-	git push origin music-ai-search
+	git push origin backend
 
 git: git_local git_remote
 
