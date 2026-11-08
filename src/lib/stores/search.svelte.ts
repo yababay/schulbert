@@ -1,7 +1,6 @@
 import { derived, writable } from 'svelte/store';
 import _TRACKS from '$lib/assets/tracks.csv?raw';
 import Papa from 'papaparse';
-import { pageState } from '$lib/stores/player.svelte';
 
 export interface Track {
     composers: string;
