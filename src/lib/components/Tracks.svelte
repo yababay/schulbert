@@ -4,6 +4,8 @@
     import Row from '$lib/components/Row.svelte';
     import Card from '$lib/components/Card.svelte';
     import Editor from '$lib/components/Editor.svelte';
+    
+    const { bootstrap } = window as any;
 
 	onMount(() => {
 		const lastPlaylist = localStorage.getItem('lastPlaylist');

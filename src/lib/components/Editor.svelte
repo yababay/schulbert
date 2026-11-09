@@ -1,10 +1,11 @@
 <script lang="ts">
     import { currentTrack } from '$lib/stores/editor.svelte';
-    import { pageState } from '$lib/stores/player.svelte';
 
-    let form: $state<HTMLFormElement | null> = null;
-    let successAlert: $state<HTMLDivElement | null> = null;
-    let errorAlert: $state<HTMLDivElement | null> = null;
+    const { bootstrap } = window as any;
+
+    let form = $state<HTMLFormElement | null>(null);
+    let successAlert = $state<HTMLDivElement | null>(null);
+    let errorAlert = $state<HTMLDivElement | null>(null);
 
     const handleSave = async () => {
         if (form) {
@@ -17,12 +18,10 @@
                 const modalElement = form.closest('.modal');
                 if (modalElement) {
                     const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                    if (modalInstance) {
-                        modalInstance.hide();      
-                    }
                     successAlert?.classList.remove('d-none');
                     setTimeout(() => {
                         successAlert?.classList.add('d-none');
+                        modalInstance.hide();      
                     }, 3000);
                 }
             } else {
@@ -106,6 +105,6 @@
         position: fixed;
         top: 20px;
         right: 20px;
-        z-index: 1050;  
+        /* z-index: 1050;  */
     }
 </style>
