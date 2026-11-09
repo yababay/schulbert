@@ -127,6 +127,7 @@ async def update_track_metadata(
     Реляционный обработчик для Svelte-редактора метаданных.
     Принимает FormData, нормализует справочники и обновляет tracks.
     """
+    print('title', title)
     try:
         import psycopg2
         from command_checker import get_or_create_person_id, get_or_create_album_id, get_connection 
@@ -134,22 +135,22 @@ async def update_track_metadata(
         DB_NAME = os.getenv('PG_DATABASE', 'player')
         DB_USER = os.getenv('PG_USER', 'player')
         DB_PASS = os.getenv('PG_PASSWORD', 'player_secure_pass')
-        
+
         conn = get_connection() #psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
-        if not conn:
-            return {"status": "error", "message": "Не удалось подключиться к СУБД."}
+        #if not conn:
+        #    return {"status": "error", "message": "Не удалось подключиться к СУБД."}
         cur = conn.cursor()
         
         # 1. Работаем со справочником альбомов
         album_id = None
         if album and album.strip():
             # Вытаскиваем текущий год, чтобы не затереть его при обновлении имени альбома
-            cur.execute("SELECT release_year FROM tracks WHERE playlist_id = %s AND track_number = %s;", (playlist_number, track_number))
-            current_year_row = cur.fetchone()
-            current_year = current_year_row[0] if current_year_row else None
+            #cur.execute("SELECT release_year FROM tracks WHERE playlist_id = %s AND track_number = %s;", (playlist_id, track_number))
+            #current_year_row = cur.fetchone()
+            #current_year = current_year_row[0] if current_year_row else None
             
             # Получаем или регистрируем альбом в СУБД
-            album_id = get_or_create_album_id(cur, album, current_year)
+            album_id = get_or_create_album_id(cur, album) #, current_year)
 
         # 2. Пересобираем массив артистов (artists_ids)
         artist_ids = []

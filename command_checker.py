@@ -4,9 +4,14 @@ import sys
 import re
 import subprocess
 import psycopg2
+from pathlib import Path
 from yargy import Parser, rule, or_
 from yargy.pipelines import morph_pipeline
 from yargy.interpretation import fact
+
+BASE_DIR = Path(__file__).resolve().parent
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 # Параметры СУБД (Канонично черпаются из .env)
 DB_NAME = os.getenv('PG_DATABASE', 'player')
@@ -150,12 +155,12 @@ def process_rest_remote_action(action: str, volume: str, load: str, track: int) 
 
 def get_connection():
     """Создает и возвращает подключение к СУБД PostgreSQL"""
-    try:
-        conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
-        return conn
-    except Exception as e:
-        print(f"❌ Ошибка подключения к СУБД: {e}", file=sys.stderr)
-        return None
+    #try:
+    conn = psycopg2.connect(host="localhost", database=DB_NAME, user=DB_USER, password=DB_PASS)
+    return conn
+    #except Exception as e:
+    #    print(f"❌ Ошибка подключения к СУБД: {e}", file=sys.stderr)
+    #    return None
 
 def get_media_catalog_data(playlist_id: int = None) -> dict:
     """🌟 МОДЕРНИЗИРОВАНО: Извлечение структуры каталога фонотеки через богатый VIEW rich_tracks"""
@@ -221,7 +226,7 @@ def get_or_create_person_id(cur, person_name):
     res = cur.fetchone()
     return res[0] if res else None
 
-def get_or_create_album_id(cur, album_name, release_year):
+def get_or_create_album_id(cur, album_name, release_year = None):
     """Ищет альбом в таблице albums. Создает, если нет, и возвращает ID."""
     if not album_name: return None
     album_clean = str(album_name).strip()

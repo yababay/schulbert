@@ -47,4 +47,6 @@ git_remote:
 
 git: git_local git_remote
 
+journal:
+	journalctl --user -xeu  music-ai-search.service
 
