@@ -74,7 +74,7 @@ def find_full_playlist_name(prefix: str) -> str:
         conn.close()
     except Exception as e:
         print(f"⚠️ Ошибка поиска префикса плейлиста в СУБД: {e}", file=sys.stderr)
-    return full_name
+    return f'{prefix}-{full_name}'
 
 def get_mpc_status() -> dict:
     """Сборка статуса плеера для Svelte-интерфейса"""
@@ -105,6 +105,7 @@ def get_mpc_status() -> dict:
 def process_rest_remote_action(action: str, volume: str, load: str, track: int) -> dict:
     """Эмуляция старых методов для шлюза /mpc"""
     executed_commands = []
+
 
     if action == "status":
         return get_mpc_status()

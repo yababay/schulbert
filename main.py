@@ -90,7 +90,6 @@ async def voice_search(file: UploadFile = File(...)):
 
 # --- УНИФИЦИРОВАННЫЙ REST-ШЛЮЗ ДЛЯ КЛИЕНТА SVELTE ---
 
-@app.post("/mpc")
 @app.get("/mpc")
 async def mpc_network_remote(
     action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear, status"),
