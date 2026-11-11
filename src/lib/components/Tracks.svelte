@@ -13,30 +13,27 @@
 	});
 
     let editor = $state<HTMLDivElement | null>(null);
-
-    const setEditor = (node: HTMLDivElement) => {
-        editor = node;
-        return {
-            destroy() {
-                if (editor === node) editor = null;
-            }
-        };
+    let modal: any = null;
+    
+    const showEditor = () => {
+        if(!modal) modal = new bootstrap.Modal(editor);
+        modal.show();
     };
 
-    let modal: any = null;
+    let successAlert = $state<HTMLDivElement | null>(null);
+    let errorAlert = $state<HTMLDivElement | null>(null);
 
-    onMount(() => {
-        modal = new bootstrap.Modal(editor, {
-            //backdrop: 'static',
-            //keyboard: false
-        });
-    });
-
-    const showEditor = () => {
-        if(modal) {
-            modal.show();
+    const showAlert = (alert: HTMLDivElement | null) => {
+        if(alert) {
+            alert.classList.remove('d-none');
+            setTimeout(() => {
+                alert?.classList.add('d-none');
+            }, 3000);
         }
     };
+
+    const showSuccessAlert = () => showAlert(successAlert);
+    const showErrorAlert = () => showAlert(errorAlert);
 
 </script>
 
@@ -63,8 +60,16 @@
         </tbody>
     </table>
 
-    <div class="modal" tabindex="-1" use:setEditor>
-		<Editor />
+    <div class="modal" tabindex="-1" bind:this={editor}>
+		<Editor {showSuccessAlert} {showErrorAlert} />
     </div>
 
 {/if}
+
+<div class="alert alert-info mt-2 mb-0 small d-none" role="alert" bind:this={successAlert}>
+    <strong>ОК:</strong> данные успешно сохранены.
+</div>
+
+<div class="alert alert-danger mt-2 mb-0 small d-none" role="alert" bind:this={errorAlert}>
+    <strong>Ошибка:</strong> не удалось сохранить данные.
+</div>

@@ -3,6 +3,8 @@
 
     const { bootstrap } = window as any;
 
+    let { showSuccessAlert, showErrorAlert } = $props();
+
     let form = $state<HTMLFormElement | null>(null);
     let successAlert = $state<HTMLDivElement | null>(null);
     let errorAlert = $state<HTMLDivElement | null>(null);
@@ -18,19 +20,13 @@
                 const modalElement = form.closest('.modal');
                 if (modalElement) {
                     const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                    successAlert?.classList.remove('d-none');
-                    setTimeout(() => {
-                        successAlert?.classList.add('d-none');
-                        modalInstance.hide();      
-                    }, 3000);
+                    modalInstance.hide();      
+                    showSuccessAlert()
                 }
             } else {
                 // Handle error response
                 console.error('Failed to save track:', response.statusText);
-                errorAlert?.classList.remove('d-none');
-                setTimeout(() => {
-                    errorAlert?.classList.add('d-none');
-                }, 3000);
+                showErrorAlert()
             }
         }
     };
@@ -105,6 +101,5 @@
         position: fixed;
         top: 20px;
         right: 20px;
-        /* z-index: 1050;  */
     }
 </style>
